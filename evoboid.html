@@ -1,0 +1,3495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOID³</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap');
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --deep:#050508; --panel:rgba(6,6,14,0.93); --border:rgba(80,200,255,0.13);
+    --accent:#28d4ff; --accent2:#7b2fff; --text:#c8e8f0;
+    --dim:rgba(200,232,240,0.35); --danger:#ff3a6e;
+  }
+  html,body { width:100%; height:100%; background:var(--deep); color:var(--text); font-family:'Rajdhani',sans-serif; overflow:hidden; }
+  #canvas-container { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  #panel {
+    position:fixed; top:0; right:0; width:300px; height:100%;
+    background:var(--panel); border-left:1px solid var(--border);
+    backdrop-filter:blur(14px); display:flex; flex-direction:column;
+    overflow-y:auto; z-index:10;
+    transition:transform 0.4s cubic-bezier(0.16,1,0.3,1);
+    scrollbar-width:thin; scrollbar-color:rgba(40,212,255,0.18) transparent;
+  }
+  #panel.hidden { transform:translateX(100%); }
+  #panel-header { padding:20px 20px 13px; border-bottom:1px solid var(--border); }
+  #panel-header h1 { font-family:'Share Tech Mono',monospace; font-size:21px; letter-spacing:6px; color:var(--accent); text-shadow:0 0 20px rgba(40,212,255,0.5); }
+  #panel-header p { font-size:10px; color:var(--dim); letter-spacing:2px; margin-top:3px; text-transform:uppercase; }
+
+  .section { padding:12px 18px; border-bottom:1px solid var(--border); }
+  .section-label { font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--accent2); margin-bottom:10px; font-family:'Share Tech Mono',monospace; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; }
+  .section-label.evo { color:#aaff44; }
+  .section-label.eco { color:#44ffaa; }
+  .section-label.perc { color:#ffaa44; }
+  .section-label::after { content:'▾'; font-size:10px; opacity:0.5; transition:transform 0.15s; }
+  .section-label.collapsed::after { transform:rotate(-90deg); }
+  .section-body { overflow:hidden; }
+  .section-body.collapsed { display:none; }
+  input[type="range"].eco-range { background:rgba(68,255,170,0.14); }
+  input[type="range"].eco-range::-webkit-slider-thumb { background:#44ffaa; box-shadow:0 0 8px rgba(68,255,170,0.7); }
+  .toggle-btn.eco-btn { border-color:rgba(68,255,170,0.3); color:#44ffaa; }
+  .toggle-btn.eco-btn:hover,.toggle-btn.eco-btn.active { border-color:#44ffaa; background:rgba(68,255,170,0.09); color:#44ffaa; }
+  .control { margin-bottom:12px; }
+  .control:last-child { margin-bottom:0; }
+  .control-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .control-name { font-size:11px; font-weight:500; }
+  .control-value { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--accent); min-width:42px; text-align:right; }
+
+  .lock-btn {
+    background:none; border:none; cursor:pointer; padding:0 3px 0 5px;
+    font-size:11px; line-height:1; color:rgba(200,232,240,0.2);
+    transition:color 0.15s; flex-shrink:0;
+  }
+  .lock-btn:hover { color:rgba(200,232,240,0.55); }
+  .lock-btn.locked { color:#ffd700; text-shadow:0 0 6px rgba(255,215,0,0.6); }
+
+  input[type="range"] {
+    -webkit-appearance:none; appearance:none; width:100%; height:3px;
+    background:rgba(40,212,255,0.14); border-radius:2px; outline:none; cursor:pointer;
+  }
+  input[type="range"].food { background:rgba(170,255,68,0.14); }
+  input[type="range"].perc-range { background:rgba(255,170,68,0.14); }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--accent); box-shadow:0 0 8px rgba(40,212,255,0.7); cursor:pointer;
+  }
+  input[type="range"].food::-webkit-slider-thumb { background:#aaff44; box-shadow:0 0 8px rgba(170,255,68,0.7); }
+  input[type="range"].perc-range::-webkit-slider-thumb { background:#ffaa44; box-shadow:0 0 8px rgba(255,170,68,0.7); }
+
+  .toggle-btn {
+    display:flex; align-items:center; justify-content:center;
+    background:none; border:1px solid var(--border); border-radius:4px; padding:5px 8px;
+    color:var(--text); font-family:'Rajdhani',sans-serif; font-size:10px; font-weight:500;
+    letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:all 0.18s;
+    width:100%; margin-bottom:6px;
+  }
+  .toggle-btn:last-child { margin-bottom:0; }
+  .toggle-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .toggle-btn.active { background:rgba(40,212,255,0.09); border-color:var(--accent); color:var(--accent); }
+  .toggle-btn.evo-btn { border-color:rgba(170,255,68,0.3); color:#aaff44; }
+  .toggle-btn.evo-btn:hover,.toggle-btn.evo-btn.active { border-color:#aaff44; background:rgba(170,255,68,0.09); color:#aaff44; }
+  .toggle-btn.perc-btn { border-color:rgba(255,170,68,0.3); color:#ffaa44; }
+  .toggle-btn.perc-btn:hover,.toggle-btn.perc-btn.active { border-color:#ffaa44; background:rgba(255,170,68,0.09); color:#ffaa44; }
+  .toggle-btn.danger:hover { border-color:var(--danger); color:var(--danger); }
+
+  #stats {
+    padding:10px 18px; font-family:'Share Tech Mono',monospace;
+    font-size:9px; color:var(--dim); line-height:1.9; border-bottom:1px solid var(--border);
+  }
+  #stats span { color:var(--accent); }
+  #stats .es { color:#aaff44; }
+
+  #toggle-panel {
+    position:fixed; top:50%; right:300px; transform:translateY(-50%);
+    background:var(--panel); border:1px solid var(--border); border-right:none;
+    color:var(--accent); width:18px; height:56px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:9px; writing-mode:vertical-rl; letter-spacing:2px;
+    font-family:'Share Tech Mono',monospace;
+    transition:right 0.4s cubic-bezier(0.16,1,0.3,1); z-index:11;
+    backdrop-filter:blur(12px); border-radius:4px 0 0 4px;
+  }
+  #toggle-panel.panel-hidden { right:0; }
+
+  .color-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:5px; }
+  .color-swatch { width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:transform 0.15s,border-color 0.15s; }
+  .color-swatch:hover { transform:scale(1.2); }
+  .color-swatch.selected { border-color:#fff; }
+
+  .mode-btns { display:flex; gap:5px; }
+  .mode-btn {
+    flex:1; background:none; border:1px solid var(--border); border-radius:4px; padding:4px 3px;
+    color:var(--dim); font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:1px;
+    cursor:pointer; transition:all 0.18s; text-align:center;
+  }
+  .mode-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .mode-btn.active { background:rgba(40,212,255,0.1); border-color:var(--accent); color:var(--accent); }
+
+  #chart-overlay {
+    position:fixed; bottom:14px; left:14px; z-index:9;
+    background:rgba(4,4,10,0.92); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; backdrop-filter:blur(10px); display:none;
+    width:520px; user-select:none;
+  }
+  #chart-overlay.visible { display:block; }
+
+  /* ── Floating event icons ── */
+  #floater-overlay {
+    position:fixed; inset:0; pointer-events:none; z-index:8; overflow:hidden;
+  }
+  .floater {
+    position:absolute; font-size:15px; line-height:1;
+    font-family:serif; pointer-events:none;
+    transform:translateX(-50%);
+    transition:none;
+    text-shadow:0 0 6px currentColor;
+  }
+  #tally-overlay {
+    position:fixed; left:14px; top:14px;
+    z-index:9; display:none; flex-direction:column; gap:4px;
+    pointer-events:none; width:210px;
+  }
+  #tally-overlay.visible { display:flex; }
+  #tally-counts {
+    font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:0.5px;
+    padding:5px 8px; border-radius:4px; line-height:1.9;
+    background:rgba(4,4,10,0.88); border:1px solid rgba(80,200,255,0.12);
+    backdrop-filter:blur(6px); pointer-events:none;
+  }
+  .tally-entry {
+    font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:0.5px;
+    padding:4px 8px; border-radius:4px; line-height:1.5;
+    background:rgba(4,4,10,0.82); border-left:2px solid;
+    backdrop-filter:blur(6px);
+    transition:opacity 1.2s ease;
+    pointer-events:none;
+  }
+  .tally-entry.birth        { border-color:#44ff88; color:#44ff88; }
+  .tally-entry.death-pred   { border-color:#ff3a3a; color:#ff3a3a; }
+  .tally-entry.death-starve { border-color:#c0388a; color:#c0388a; }
+  .tally-entry.death-age    { border-color:#ffd700; color:#ffd700; }
+  .tally-entry.fading { opacity:0; }
+  #tree-overlay {
+    position:fixed; inset:14px; z-index:10;
+    background:rgba(4,4,10,0.96); border:1px solid var(--accent);
+    border-radius:10px; backdrop-filter:blur(12px); display:none;
+    flex-direction:column; overflow:hidden;
+  }
+  #tree-overlay.visible { display:flex; }
+  #tree-header {
+    display:flex; align-items:center; gap:10px; padding:9px 14px;
+    border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  #tree-header h3 { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:3px; color:var(--accent2); margin:0; flex:1; }
+  #tree-header span { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); }
+  #btn-tree-close { font-family:'Share Tech Mono',monospace; font-size:9px; background:none; border:1px solid var(--border); border-radius:3px; color:var(--dim); padding:3px 8px; cursor:pointer; }
+  #btn-tree-close:hover { color:#fff; }
+  #btn-tree-reset-view { font-family:'Share Tech Mono',monospace; font-size:9px; background:none; border:1px solid var(--border); border-radius:3px; color:var(--dim); padding:3px 8px; cursor:pointer; }
+  #btn-tree-reset-view:hover { color:var(--accent); }
+  #tree-legend { display:flex; gap:10px; align-items:center; }
+  .tree-leg-item { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); display:flex; align-items:center; gap:4px; }
+  .tree-leg-dot { width:8px; height:8px; border-radius:50%; }
+  #tree-canvas { flex:1; cursor:grab; display:block; }
+  #tree-canvas:active { cursor:grabbing; }
+  #tree-tooltip {
+    position:fixed; z-index:20; background:rgba(4,4,10,0.96); border:1px solid var(--accent);
+    border-radius:6px; padding:8px 10px; font-family:'Share Tech Mono',monospace;
+    font-size:8px; color:var(--dim); line-height:1.8; pointer-events:none; display:none;
+    max-width:180px;
+  }
+  #chart-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+  #chart-top h3 { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:3px; color:var(--accent2); }
+  #chart-top span { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); }
+  #trait-canvas { display:block; border:1px solid rgba(80,200,255,0.08); border-radius:3px; }
+  #chart-legend {
+    display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;
+  }
+  .tpill {
+    display:flex; align-items:center; gap:4px;
+    font-family:'Share Tech Mono',monospace; font-size:8px;
+    border:1px solid transparent; border-radius:3px;
+    padding:2px 6px; cursor:pointer; transition:all 0.15s;
+    opacity:0.35;
+  }
+  .tpill.on { opacity:1; border-color:rgba(255,255,255,0.15); }
+  .tpill:hover { opacity:0.75; }
+  .tpill.on:hover { opacity:1; }
+  .tpill-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  #inspector {
+    position:fixed; top:14px; right:14px; z-index:20;
+    background:rgba(4,4,10,0.94); border:1px solid var(--accent);
+    border-radius:8px; padding:12px 14px; backdrop-filter:blur(10px);
+    width:230px; display:none; font-family:'Share Tech Mono',monospace;
+    font-size:9px; line-height:1.7; color:var(--dim);
+  }
+  #inspector.visible { display:block; }
+  #inspector h3 { font-size:9px; letter-spacing:3px; color:var(--accent2); margin:0 0 8px; }
+  #inspector .irow { display:flex; justify-content:space-between; }
+  #inspector .irow .ilabel { color:var(--dim); }
+  #inspector .irow .ival   { color:#fff; font-weight:bold; }
+  #inspector .isep { border:none; border-top:1px solid rgba(255,255,255,0.07); margin:6px 0; }
+  #inspector .icls { float:right; cursor:pointer; color:var(--dim); font-size:11px; line-height:1; margin-top:-2px; }
+  #inspector .icls:hover { color:#fff; }
+  #inspector .igroup { font-size:8px; letter-spacing:2px; color:var(--accent); margin:6px 0 3px; }
+</style>
+</head>
+<body>
+<div id="inspector">
+  <span class="icls" id="inspector-close">✕</span>
+  <h3>BOID INSPECTOR</h3>
+  <div id="inspector-body"></div>
+</div>
+<div id="canvas-container"></div>
+<div id="cam-hint" style="
+  position:fixed; right:14px; bottom:14px; z-index:8;
+  font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(200,232,240,0.28);
+  line-height:1.8; text-align:right; pointer-events:none; letter-spacing:0.4px;
+">
+  LMB · orbit &nbsp;|&nbsp; RMB/MMB · pan &nbsp;|&nbsp; scroll · zoom<br>
+  WASD · move target &nbsp;|&nbsp; Q/E · up/down &nbsp;|&nbsp; Shift · sprint<br>
+  F · free-fly &nbsp;|&nbsp; dbl-click · reset pan
+</div>
+<div id="freecam-hint" style="
+  display:none; position:fixed; left:50%; transform:translateX(-50%);
+  top:14px; z-index:20; padding:6px 16px; border-radius:6px;
+  background:rgba(0,0,0,0.72); border:1px solid rgba(80,200,255,0.3);
+  font-family:'Share Tech Mono',monospace; font-size:9px; color:#44ccff;
+  letter-spacing:0.5px; text-align:center; pointer-events:none;
+">
+  FREE-FLY · WASD move &nbsp;|&nbsp; Q/E up/down &nbsp;|&nbsp; mouse-look &nbsp;|&nbsp; Shift sprint &nbsp;|&nbsp; F / Esc / dbl-click · exit
+</div>
+<div id="toggle-panel">◀ CTRL</div>
+
+<div id="chart-overlay">
+  <div id="chart-top">
+    <h3>TRAIT DRIFT</h3>
+    <span id="chart-gen-label">GEN 0 · 0 SAMPLES</span>
+  </div>
+  <canvas id="trait-canvas" width="496" height="160"></canvas>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:7px;margin-bottom:4px;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--accent2);letter-spacing:2px;">TRAITS</span>
+    <button id="btn-deselect-all" style="font-family:'Share Tech Mono',monospace;font-size:8px;background:none;border:1px solid rgba(80,200,255,0.2);border-radius:3px;color:var(--dim);padding:2px 7px;cursor:pointer;letter-spacing:1px;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--dim)'">DESELECT ALL</button>
+  </div>
+  <div id="chart-legend"></div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--accent2);letter-spacing:2px;margin-top:7px;margin-bottom:4px;">POPULATION</div>
+  <div id="pop-legend"></div>
+</div>
+
+<div id="floater-overlay"></div>
+<div id="tally-overlay">
+  <div id="tally-counts"></div>
+</div>
+
+<div id="tree-overlay">
+  <div id="tree-header">
+    <h3>EVOLUTIONARY TREE</h3>
+    <div id="tree-legend">
+      <div class="tree-leg-item"><div class="tree-leg-dot" style="background:#44ff88"></div>Plant</div>
+      <div class="tree-leg-item"><div class="tree-leg-dot" style="background:#ff4444"></div>Predator</div>
+      <div class="tree-leg-item"><div class="tree-leg-dot" style="background:#44ccff"></div>Prey</div>
+      <div class="tree-leg-item"><div class="tree-leg-dot" style="background:#aaaaaa"></div>Generalist</div>
+      <div class="tree-leg-item"><div class="tree-leg-dot" style="background:#ffd700; border-radius:0;width:16px;height:2px;"></div>Champion lineage</div>
+      <div class="tree-leg-item"><div class="tree-leg-dot" style="background:rgba(255,215,0,0.35); border-radius:0;width:16px;height:2px;"></div>Living ancestry</div>
+    </div>
+    <span id="tree-stats">0 nodes</span>
+    <button id="btn-tree-reset-view">FIT</button>
+    <button id="btn-tree-close">✕ CLOSE</button>
+  </div>
+  <canvas id="tree-canvas"></canvas>
+</div>
+<div id="tree-tooltip"></div>
+
+<div id="panel">
+  <div id="panel-header">
+    <h1>VOID³</h1>
+    <p>3D Boid Evolution Engine</p>
+  </div>
+
+  <div id="stats">
+    BOIDS: <span id="s-count">0</span> | FPS: <span id="s-fps">0</span><br>
+    BIRTHS: <span class="es" id="s-births">0</span> | DEATHS: <span class="es" id="s-deaths">0</span> | GEN: <span class="es" id="s-gen">0</span><br>
+    AVG SPD: <span id="s-aspeed">—</span> | FLOCK R: <span id="s-aflock">—</span><br>
+    VIS R: <span id="s-avis">—</span> | VIS ANG: <span id="s-afood">—</span>
+  </div>
+
+  <!-- EVOLUTION -->
+  <div class="section">
+    <div class="section-label evo">⬡ Evolution Mode</div>
+    <button class="toggle-btn evo-btn" id="btn-evo">ENABLE EVOLUTION</button>
+    <button class="toggle-btn eco-btn" id="btn-eco">ENABLE ECOSYSTEM</button>
+    <button class="toggle-btn" id="btn-chart" style="display:none">TRAIT DRIFT CHART</button>
+    <button class="toggle-btn" id="btn-tree" style="display:none">🌿 EVO TREE</button>
+    <button class="toggle-btn" id="btn-tally" style="display:none">📋 TALLY</button>
+    <button class="toggle-btn" id="btn-reset">START / RESET SIMULATION</button>
+    <button class="toggle-btn" id="btn-pause" style="display:none">⏸ PAUSE</button>
+    <button class="toggle-btn" id="btn-randomize-evo" style="display:none">🎲 RANDOMIZE PARAMS</button>
+    <button class="toggle-btn eco-btn" id="btn-randomize-eco" style="display:none">🎲 RANDOMIZE PARAMS</button>
+    <button class="toggle-btn" id="btn-defaults">↺ DEFAULTS</button>
+  </div>
+
+  <div id="eco-section" style="display:none">
+    <div class="section">
+      <div class="section-label eco">🌿 Ecosystem Physics</div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Gravity Strength</span><span class="control-value" id="v-ecoGrav">0.25</span></div>
+        <input type="range" class="eco-range" id="r-ecoGrav" min="0" max="1" step="0.05" value="0.25">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Flight Cost (×alt)</span><span class="control-value" id="v-flightCost">1.5</span></div>
+        <input type="range" class="eco-range" id="r-flightCost" min="0" max="8" step="0.1" value="1.5">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Max Passive Gain</span><span class="control-value" id="v-passiveGainBase">18.0</span></div>
+        <input type="range" class="eco-range" id="r-passiveGainBase" min="0" max="10" step="0.5" value="3">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Move Stall (s)</span><span class="control-value" id="v-passivityCurve">2.00</span></div>
+        <input type="range" class="eco-range" id="r-passivityCurve" min="0.5" max="10" step="0.25" value="2.0">
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label eco">🏔 Topography</div>
+      <button class="toggle-btn eco-btn" id="btn-topoMode">TERRAIN: FLAT</button>
+      <div id="topo-controls" style="display:none">
+        <div class="control">
+          <div class="control-row"><span class="control-name">Amplitude</span><span class="control-value" id="v-topoAmp">0.15</span></div>
+          <input type="range" class="eco-range" id="r-topoAmp" min="0.01" max="0.45" step="0.01" value="0.15">
+        </div>
+        <div class="control">
+          <div class="control-row"><span class="control-name">Feature Scale</span><span class="control-value" id="v-topoScale">0.30</span></div>
+          <input type="range" class="eco-range" id="r-topoScale" min="0.05" max="1.0" step="0.01" value="0.30">
+        </div>
+        <div class="control">
+          <div class="control-row"><span class="control-name">Roughness</span><span class="control-value" id="v-topoRough">0.50</span></div>
+          <input type="range" class="eco-range" id="r-topoRough" min="0.0" max="1.0" step="0.05" value="0.50">
+        </div>
+        <div class="control">
+          <div class="control-row"><span class="control-name">Seed</span><span class="control-value" id="v-topoSeed">42</span></div>
+          <input type="range" class="eco-range" id="r-topoSeed" min="1" max="999" step="1" value="42">
+        </div>
+        <button class="toggle-btn eco-btn" id="btn-topoRegen">↺ REGENERATE</button>
+        <!-- Water controls — only meaningful with terrain -->
+        <div style="margin-top:8px">
+          <button class="toggle-btn eco-btn" id="btn-waterOn">💧 WATER: OFF</button>
+          <div id="water-controls" style="display:none;margin-top:6px">
+            <div class="control">
+              <div class="control-row"><span class="control-name">Water Level</span><span class="control-value" id="v-waterLevel">0.15</span></div>
+              <input type="range" class="eco-range" id="r-waterLevel" min="0.02" max="0.55" step="0.01" value="0.15">
+            </div>
+            <div class="control">
+              <div class="control-row"><span class="control-name">Water Drag</span><span class="control-value" id="v-waterDrag">4.0</span></div>
+              <input type="range" class="eco-range" id="r-waterDrag" min="1.0" max="12" step="0.25" value="4.0">
+            </div>
+            <div class="control">
+              <div class="control-row"><span class="control-name">Water Food %</span><span class="control-value" id="v-waterFoodFrac">0.20</span></div>
+              <input type="range" class="eco-range" id="r-waterFoodFrac" min="0" max="0.6" step="0.05" value="0.20">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label eco">Predation</div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Pred Size Advantage</span><span class="control-value" id="v-predRatio">1.50</span></div>
+        <input type="range" class="eco-range" id="r-predRatio" min="1.0" max="5.0" step="0.05" value="1.5">
+      </div>
+      <button class="toggle-btn active eco-btn" id="btn-predOn">PREDATION: ON</button>
+      <button class="toggle-btn active eco-btn" id="btn-corpseFood">CORPSE FOOD: ON</button>
+    </div>
+    <div class="section">
+      <div class="section-label eco">Food Distribution</div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Count</span><span class="control-value" id="v-eco-foodCount">150</span></div>
+        <input type="range" class="food" id="r-eco-foodCount" min="10" max="800" step="5" value="150">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Respawn Delay (s)</span><span class="control-value" id="v-eco-foodRegen">5.00</span></div>
+        <input type="range" class="food" id="r-eco-foodRegen" min="0" max="120" step="0.5" value="5">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Value</span><span class="control-value" id="v-eco-foodValue">28</span></div>
+        <input type="range" class="food" id="r-eco-foodValue" min="5" max="120" step="1" value="28">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Energy Variance</span><span class="control-value" id="v-eco-foodVariance">0.60</span></div>
+        <input type="range" class="food" id="r-eco-foodVariance" min="0" max="1" step="0.05" value="0.6">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Ground Layer %</span><span class="control-value" id="v-groundFoodFrac">0.60</span></div>
+        <input type="range" class="eco-range" id="r-groundFoodFrac" min="0" max="1" step="0.05" value="0.60">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Tree Layer %</span><span class="control-value" id="v-treeFoodFrac">0.25</span></div>
+        <input type="range" class="eco-range" id="r-treeFoodFrac" min="0" max="1" step="0.05" value="0.25">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Sky Food Drift</span><span class="control-value" id="v-skyFoodDrift">0.30</span></div>
+        <input type="range" class="eco-range" id="r-skyFoodDrift" min="0" max="2" step="0.05" value="0.30">
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label eco">Metabolism</div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Base Metabolism</span><span class="control-value" id="v-eco-baseDrain">2.5</span></div>
+        <input type="range" id="r-eco-baseDrain" min="0.2" max="15" step="0.1" value="2.5">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Size Drain Exponent</span><span class="control-value" id="v-eco-sizeDrainExp">2.00</span></div>
+        <input type="range" id="r-eco-sizeDrainExp" min="1.0" max="4.0" step="0.05" value="2.0">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Speed Cost (×spd²)</span><span class="control-value" id="v-eco-moveDrain">1.2</span></div>
+        <input type="range" id="r-eco-moveDrain" min="0" max="8" step="0.1" value="1.2">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Flock Sphere Cost</span><span class="control-value" id="v-eco-flockDrain">0.0015</span></div>
+        <input type="range" id="r-eco-flockDrain" min="0" max="0.02" step="0.0005" value="0.0015">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Turn Cost (×rad/s)</span><span class="control-value" id="v-eco-turnDrain">0.80</span></div>
+        <input type="range" id="r-eco-turnDrain" min="0" max="5" step="0.05" value="0.8">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Vision Cone Cost</span><span class="control-value" id="v-eco-visionDrain">0.0035</span></div>
+        <input type="range" id="r-eco-visionDrain" min="0" max="0.02" step="0.0005" value="0.0035">
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label eco">Reproduction</div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Repro Threshold (%)</span><span class="control-value" id="v-eco-reproThresh">80</span></div>
+        <input type="range" id="r-eco-reproThresh" min="40" max="99" step="1" value="80">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Repro Energy Cost (%)</span><span class="control-value" id="v-eco-reproCost">50</span></div>
+        <input type="range" id="r-eco-reproCost" min="20" max="80" step="1" value="50">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Mutation Rate</span><span class="control-value" id="v-eco-mutRate">0.15</span></div>
+        <input type="range" id="r-eco-mutRate" min="0.01" max="0.6" step="0.01" value="0.15">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Pop Cap</span><span class="control-value" id="v-eco-popCap">200</span></div>
+        <input type="range" id="r-eco-popCap" min="10" max="500" step="5" value="200">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Base Lifespan (s)</span><span class="control-value" id="v-eco-lifespan">50</span></div>
+        <input type="range" id="r-eco-lifespan" min="5" max="180" step="1" value="50">
+      </div>
+    </div>
+  </div>
+
+  <div id="evo-section" style="display:none">
+    <div class="section">
+      <div class="section-label evo">Metabolism</div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Count</span><span class="control-value" id="v-foodCount">150</span></div>
+        <input type="range" class="food" id="r-foodCount" min="10" max="800" step="5" value="150">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Value</span><span class="control-value" id="v-foodValue">28</span></div>
+        <input type="range" class="food" id="r-foodValue" min="5" max="120" step="1" value="28">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Energy Variance</span><span class="control-value" id="v-foodVariance">0.60</span></div>
+        <input type="range" class="food" id="r-foodVariance" min="0" max="1" step="0.05" value="0.6">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Food Respawn Delay (s)</span><span class="control-value" id="v-foodRegen">5.00</span></div>
+        <input type="range" class="food" id="r-foodRegen" min="0" max="120" step="0.5" value="5">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Base Metabolism</span><span class="control-value" id="v-baseDrain">2.5</span></div>
+        <input type="range" id="r-baseDrain" min="0.2" max="15" step="0.1" value="2.5">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Size Drain Exponent</span><span class="control-value" id="v-sizeDrainExp">2.00</span></div>
+        <input type="range" id="r-sizeDrainExp" min="1.0" max="4.0" step="0.05" value="2.0">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Speed Cost (×spd²)</span><span class="control-value" id="v-moveDrain">1.2</span></div>
+        <input type="range" id="r-moveDrain" min="0" max="8" step="0.1" value="1.2">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Flock Sphere Cost (×vol)</span><span class="control-value" id="v-flockDrain">0.0015</span></div>
+        <input type="range" id="r-flockDrain" min="0" max="0.02" step="0.0005" value="0.0015">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Vision Cone Cost (×vol)</span><span class="control-value" id="v-visionDrain">0.0035</span></div>
+        <input type="range" id="r-visionDrain" min="0" max="0.02" step="0.0005" value="0.0035">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Turn Cost (×rad/s)</span><span class="control-value" id="v-turnDrain">0.80</span></div>
+        <input type="range" id="r-turnDrain" min="0" max="5" step="0.05" value="0.8">
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label evo">Reproduction</div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Repro Threshold (%)</span><span class="control-value" id="v-reproThresh">80</span></div>
+        <input type="range" id="r-reproThresh" min="40" max="99" step="1" value="80">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Repro Energy Cost (%)</span><span class="control-value" id="v-reproCost">50</span></div>
+        <input type="range" id="r-reproCost" min="20" max="80" step="1" value="50">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Mutation Rate</span><span class="control-value" id="v-mutRate">0.15</span></div>
+        <input type="range" id="r-mutRate" min="0.01" max="0.6" step="0.01" value="0.15">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Pop Cap</span><span class="control-value" id="v-popCap">200</span></div>
+        <input type="range" id="r-popCap" min="10" max="500" step="5" value="200">
+      </div>
+      <div class="control">
+        <div class="control-row"><span class="control-name">Base Lifespan (s)</span><span class="control-value" id="v-lifespan">50</span></div>
+        <input type="range" id="r-lifespan" min="5" max="180" step="1" value="50">
+      </div>
+      <button class="toggle-btn active evo-btn" id="btn-agelimit" style="margin-top:4px">AGE LIMIT: ON</button>
+    </div>
+  </div>
+
+  <!-- POPULATION -->
+  <div class="section">
+    <div class="section-label">Population</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Initial Count</span><span class="control-value" id="v-count">60</span></div>
+      <input type="range" id="r-count" min="1" max="500" value="60">
+    </div>
+  </div>
+
+  <!-- MOTION -->
+  <div class="section">
+    <div class="section-label">Motion</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Base Speed</span><span class="control-value" id="v-speed">1.20</span></div>
+      <input type="range" id="r-speed" min="0.1" max="4" step="0.05" value="1.2">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Chaos</span><span class="control-value" id="v-chaos">0.02</span></div>
+      <input type="range" id="r-chaos" min="0" max="1" step="0.01" value="0.02">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Damping</span><span class="control-value" id="v-damp">0.940</span></div>
+      <input type="range" id="r-damp" min="0.80" max="1.0" step="0.002" value="0.94">
+    </div>
+  </div>
+
+  <!-- PERCEPTION (SEED VALUES) -->
+  <div class="section">
+    <div class="section-label perc">Perception (seed / non-evo)</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Flock Sphere Radius</span><span class="control-value" id="v-flockSphere">2.5</span></div>
+      <input type="range" class="perc-range" id="r-flockSphere" min="0.5" max="20" step="0.25" value="2.5">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Food Vision Range</span><span class="control-value" id="v-visionRange">6.0</span></div>
+      <input type="range" class="perc-range" id="r-visionRange" min="0.5" max="30" step="0.25" value="6.0">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Food Vision Angle (°)</span><span class="control-value" id="v-visionAngle">22</span></div>
+      <input type="range" class="perc-range" id="r-visionAngle" min="5" max="90" step="1" value="22">
+    </div>
+  </div>
+
+  <!-- BOID WEIGHTS -->
+  <div class="section">
+    <div class="section-label">Boid Weights (seed / non-evo)</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Separation</span><span class="control-value" id="v-separation">1.50</span></div>
+      <input type="range" id="r-separation" min="0" max="5" step="0.05" value="1.5">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Alignment</span><span class="control-value" id="v-alignment">1.00</span></div>
+      <input type="range" id="r-alignment" min="0" max="5" step="0.05" value="1.0">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Cohesion</span><span class="control-value" id="v-cohesion">0.80</span></div>
+      <input type="range" id="r-cohesion" min="0" max="5" step="0.05" value="0.8">
+    </div>
+  </div>
+
+  <!-- EXTRA FORCES -->
+  <div class="section">
+    <div class="section-label">Extra Forces</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Gravity (Y)</span><span class="control-value" id="v-grav">0.00</span></div>
+      <input type="range" id="r-grav" min="-1" max="1" step="0.02" value="0">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Vortex Spin</span><span class="control-value" id="v-vortex">0.00</span></div>
+      <input type="range" id="r-vortex" min="-2" max="2" step="0.05" value="0">
+    </div>
+  </div>
+
+  <!-- SHAPE -->
+  <div class="section">
+    <div class="section-label">Boid Shape</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Global Size</span><span class="control-value" id="v-size">0.55</span></div>
+      <input type="range" id="r-size" min="0.1" max="3" step="0.05" value="0.55">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Arrow Aspect</span><span class="control-value" id="v-aspect">2.5</span></div>
+      <input type="range" id="r-aspect" min="1" max="6" step="0.1" value="2.5">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Emissive Glow</span><span class="control-value" id="v-emissive">0.70</span></div>
+      <input type="range" id="r-emissive" min="0" max="1" step="0.05" value="0.7">
+    </div>
+  </div>
+
+  <!-- BOUNDS -->
+  <div class="section">
+    <div class="section-label">Bounds</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Cube Size</span><span class="control-value" id="v-cube">32</span></div>
+      <input type="range" id="r-cube" min="5" max="300" step="1" value="32">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Line Thickness</span><span class="control-value" id="v-boxThickness">0.05</span></div>
+      <input type="range" id="r-boxThickness" min="0.01" max="0.6" step="0.01" value="0.05">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Line Opacity</span><span class="control-value" id="v-boxOpacity">0.45</span></div>
+      <input type="range" id="r-boxOpacity" min="0.05" max="1" step="0.05" value="0.45">
+    </div>
+    <div class="control">
+      <div class="control-row" style="margin-bottom:6px;"><span class="control-name">Line Color</span>
+        <input type="color" id="r-boxColor" value="#1a4a5a" style="width:36px;height:20px;border:1px solid var(--border);background:none;cursor:pointer;border-radius:3px;padding:1px;">
+      </div>
+    </div>
+    <div class="section-label" style="margin-top:10px;margin-bottom:7px;">Boundary Mode</div>
+    <div class="mode-btns">
+      <button class="mode-btn active" data-mode="bounce">BOUNCE</button>
+      <button class="mode-btn" data-mode="wrap">WRAP</button>
+      <button class="mode-btn" data-mode="absorb">ABSORB</button>
+    </div>
+  </div>
+
+  <!-- TRAIL -->
+  <div class="section">
+    <div class="section-label">Trail</div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Trail Length</span><span class="control-value" id="v-trail">25</span></div>
+      <input type="range" id="r-trail" min="0" max="200" step="1" value="25">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Trail Opacity</span><span class="control-value" id="v-trailfade">0.40</span></div>
+      <input type="range" id="r-trailfade" min="0.05" max="1" step="0.05" value="0.4">
+    </div>
+  </div>
+
+  <!-- COLOR -->
+  <div class="section">
+    <div class="section-label">Color Theme</div>
+    <div class="color-row" id="color-swatches"></div>
+  </div>
+
+  <!-- DISPLAY -->
+  <div class="section">
+    <div class="section-label">Display</div>
+    <button class="toggle-btn active" id="btn-box">SHOW CUBE BOUNDS</button>
+    <button class="toggle-btn active" id="btn-axes">SHOW AXES</button>
+    <button class="toggle-btn active" id="btn-trails">SHOW TRAILS</button>
+    <button class="toggle-btn" id="btn-fog">DEPTH FOG</button>
+    <button class="toggle-btn" id="btn-bgwhite">WHITE BACKGROUND</button>
+    <button class="toggle-btn perc-btn" id="btn-perc">PERCEPTION BUBBLES</button>
+    <button class="toggle-btn" id="btn-energycolor">ENERGY COLOR</button>
+    <button class="toggle-btn" id="btn-rotate">AUTO ROTATE</button>
+  </div>
+
+  <!-- PRESETS -->
+  <div class="section">
+    <div class="section-label">Parameter Preset</div>
+    <div style="display:flex;gap:5px;margin-bottom:6px;">
+      <button class="toggle-btn" id="btn-copy-params" style="margin-bottom:0;flex:1">📋 COPY</button>
+      <button class="toggle-btn" id="btn-paste-params" style="margin-bottom:0;flex:1">📥 APPLY</button>
+    </div>
+    <textarea id="preset-box"
+      spellcheck="false"
+      placeholder="Copy current params above, paste a saved string here, then click APPLY…"
+      style="
+        width:100%; height:72px; resize:vertical;
+        background:rgba(0,0,0,0.4); border:1px solid var(--border);
+        border-radius:4px; color:var(--accent); font-family:'Share Tech Mono',monospace;
+        font-size:8px; padding:6px 8px; outline:none; line-height:1.5;
+        transition:border-color 0.15s;
+      "
+    ></textarea>
+    <div id="preset-msg" style="font-family:'Share Tech Mono',monospace;font-size:8px;height:14px;margin-top:3px;"></div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="section">
+    <div class="section-label">Actions</div>
+    <button class="toggle-btn danger" id="btn-explode">EXPLODE BURST</button>
+  </div>
+</div>
+
+<script>
+const _s = document.createElement('script');
+_s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+_s.onload = main;
+document.head.appendChild(_s);
+
+// ── Themes ──
+const THEMES = [{hex:0x00e5ff},{hex:0xcc44ff},{hex:0xff2255},{hex:0xffcc00},{hex:0x00ff88},{hex:0xffffff}];
+const SWATCH_HEX = ['#00e5ff','#cc44ff','#ff2255','#ffcc00','#00ff88','#ffffff'];
+let activeTheme = 0;
+document.getElementById('color-swatches').innerHTML = SWATCH_HEX.map((h,i)=>
+  `<div class="color-swatch${i===0?' selected':''}" style="background:${h};box-shadow:0 0 8px ${h}88" data-i="${i}"></div>`).join('');
+document.querySelectorAll('.color-swatch').forEach(sw=>sw.addEventListener('click',()=>{
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected');
+  activeTheme=parseInt(sw.dataset.i);
+  voids.forEach(v=>v.applyColor());
+}));
+
+// ── Params ──
+const P = {
+  count:60, speed:1.2, chaos:0.02, damp:0.94,
+  size:0.55, aspect:2.5, emissive:0.7,
+  flockSphere:2.5, visionRange:6.0, visionAngle:22,
+  separation:1.5, alignment:1.0, cohesion:0.8,
+  grav:0.0, vortex:0.0,
+  cube:32, trail:25, trailfade:0.4,
+  boxColor:'#1a4a5a', boxThickness:0.05, boxOpacity:0.45,
+  showBox:true, showAxes:true, showTrails:true, showFog:false,
+  showPerc:false, energyColor:false, autoRotate:false, bgWhite:false, boundMode:'bounce',
+  paused:false,
+  // Evolution
+  evoMode:false, showChart:false,
+  foodCount:150, foodValue:28, foodVariance:0.6, foodRegen:5.0,
+  baseDrain:2.5, moveDrain:1.2, flockDrain:0.0015, visionDrain:0.0035, turnDrain:0.80,
+  sizeDrainExp:2.0,
+  reproThresh:80, reproCost:50, mutRate:0.15, popCap:200, lifespan:50, ageLimit:true,
+  // Ecosystem
+  ecoMode:false,
+  ecoGrav:0.25, flightCost:1.5, passiveGainBase:3.0, passivityCurve:2.0,
+  topoMode:'flat', topoAmp:0.15, topoScale:0.30, topoRough:0.50, topoSeed:42,
+  waterOn:false, waterLevel:0.15, waterDrag:4.0, waterFoodFrac:0.20,
+  predRatio:1.5, predOn:true, corpseFood:true,
+  groundFoodFrac:0.60, treeFoodFrac:0.25, skyFoodDrift:0.30,
+};
+
+// Slider wiring
+function mkSlider(id, key, digits) {
+  const el=document.getElementById('r-'+id), vEl=document.getElementById('v-'+id);
+  if(!el||!vEl) return;
+  el.addEventListener('input',()=>{
+    P[key]=parseFloat(el.value);
+    vEl.textContent=P[key].toFixed(digits);
+    onParamChange(key);
+    recordChartEvent(id);
+  });
+}
+[['count','count',0],['speed','speed',2],['chaos','chaos',2],['damp','damp',3],
+ ['size','size',2],['aspect','aspect',1],['emissive','emissive',2],
+ ['flockSphere','flockSphere',1],['visionRange','visionRange',1],
+ ['visionAngle','visionAngle',0],
+ ['separation','separation',2],['alignment','alignment',2],['cohesion','cohesion',2],
+ ['grav','grav',2],['vortex','vortex',2],
+ ['cube','cube',0],['trail','trail',0],['trailfade','trailfade',2],
+ ['boxThickness','boxThickness',2],['boxOpacity','boxOpacity',2],
+ ['foodCount','foodCount',0],['foodValue','foodValue',0],['foodVariance','foodVariance',2],['foodRegen','foodRegen',2],
+ ['baseDrain','baseDrain',1],['moveDrain','moveDrain',1],
+ ['flockDrain','flockDrain',4],['visionDrain','visionDrain',4],['turnDrain','turnDrain',2],
+ ['sizeDrainExp','sizeDrainExp',2],
+ ['reproThresh','reproThresh',0],['reproCost','reproCost',0],
+ ['mutRate','mutRate',2],['popCap','popCap',0],['lifespan','lifespan',0],
+ ['ecoGrav','ecoGrav',2],['flightCost','flightCost',1],['passiveGainBase','passiveGainBase',1],
+ ['passivityCurve','passivityCurve',2],
+ ['topoAmp','topoAmp',2],['topoScale','topoScale',2],['topoRough','topoRough',2],['topoSeed','topoSeed',0],
+ ['waterLevel','waterLevel',2],['waterDrag','waterDrag',2],['waterFoodFrac','waterFoodFrac',2],
+ ['predRatio','predRatio',2],
+ ['groundFoodFrac','groundFoodFrac',2],['treeFoodFrac','treeFoodFrac',2],['skyFoodDrift','skyFoodDrift',2],
+].forEach(([id,key,d])=>mkSlider(id,key,d));
+
+// Sync slider positions to P defaults
+(function(){
+  document.querySelectorAll('input[type="range"]').forEach(el=>{
+    const id=el.id.replace('r-',''), vEl=document.getElementById('v-'+id);
+    const key=Object.keys(P).find(k=>k===id);
+    if(key!==undefined&&vEl){ el.value=P[key]; vEl.textContent=parseFloat(P[key]).toFixed(parseInt(el.step||'0').toString().includes('.')?2:0); }
+  });
+  // Fix specific display values
+  document.getElementById('v-visionAngle').textContent = P.visionAngle.toFixed(0);
+  document.getElementById('v-flockDrain').textContent  = P.flockDrain.toFixed(4);
+  document.getElementById('v-visionDrain').textContent = P.visionDrain.toFixed(4);
+  document.getElementById('v-passiveGainBase').textContent = P.passiveGainBase.toFixed(1);
+  document.getElementById('v-passivityCurve').textContent  = P.passivityCurve.toFixed(2);
+  // Sync eco-section displays to match P defaults
+  document.getElementById('v-eco-flockDrain').textContent  = P.flockDrain.toFixed(4);
+  document.getElementById('v-eco-visionDrain').textContent = P.visionDrain.toFixed(4);
+  document.getElementById('v-turnDrain').textContent = P.turnDrain.toFixed(2);
+  document.getElementById('v-eco-turnDrain').textContent = P.turnDrain.toFixed(2);
+})();
+
+// Toggle panel
+const panelEl=document.getElementById('panel'), tBtn=document.getElementById('toggle-panel');
+tBtn.addEventListener('click',()=>{
+  panelEl.classList.toggle('hidden');
+  const h=panelEl.classList.contains('hidden');
+  tBtn.classList.toggle('panel-hidden',h);
+  tBtn.textContent=h?'▶ CTRL':'◀ CTRL';
+});
+
+// Toggle buttons
+function mkToggle(id,key,cb){
+  const btn=document.getElementById('btn-'+id);
+  if(!btn) return;
+  btn.addEventListener('click',function(){ P[key]=!P[key]; this.classList.toggle('active',P[key]); if(cb)cb(); });
+}
+mkToggle('box','showBox',()=>{ if(boxHelper) boxHelper.visible=P.showBox; });
+mkToggle('axes','showAxes',()=>{ if(axesGroup) axesGroup.visible=P.showAxes; });
+mkToggle('trails','showTrails',()=>{ if(trailGroup) trailGroup.visible=P.showTrails; });
+mkToggle('fog','showFog',()=>{ if(scene) scene.fog=P.showFog?new THREE.FogExp2(P.bgWhite?0xffffff:0x050508,0.012):null; });
+mkToggle('bgwhite','bgWhite',()=>{
+  const bg=P.bgWhite?0xffffff:0x050508;
+  document.body.style.background=P.bgWhite?'#ffffff':'#050508';
+  renderer.setClearColor(bg,1);
+  if(P.showFog) scene.fog=new THREE.FogExp2(bg,0.012);
+});
+mkToggle('perc','showPerc',()=>{ if(bubbleGroup) bubbleGroup.visible=P.showPerc; });
+mkToggle('energycolor','energyColor', ()=>{ if(!P.energyColor) voids.forEach(v=>v.applyColor()); });
+mkToggle('rotate','autoRotate');
+document.getElementById('btn-agelimit').addEventListener('click',function(){
+  P.ageLimit=!P.ageLimit;
+  this.classList.toggle('active',P.ageLimit);
+  this.textContent=P.ageLimit?'AGE LIMIT: ON':'AGE LIMIT: OFF';
+});
+
+// Evolution toggle
+document.getElementById('btn-evo').addEventListener('click',function(){
+  P.evoMode=!P.evoMode;
+  if(P.evoMode && P.ecoMode){ P.ecoMode=false; document.getElementById('btn-eco').classList.remove('active'); document.getElementById('btn-eco').textContent='ENABLE ECOSYSTEM'; document.getElementById('eco-section').style.display='none'; }
+  this.classList.toggle('active',P.evoMode);
+  this.textContent=P.evoMode?'EVOLUTION: ON':'ENABLE EVOLUTION';
+  document.getElementById('evo-section').style.display=P.evoMode?'':'none';
+  document.getElementById('btn-chart').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-tree').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-tally').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-pause').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-randomize-evo').style.display=P.evoMode?'':'none';
+  document.getElementById('btn-randomize-eco').style.display=P.ecoMode?'':'none';
+  voids.forEach(v=>v.destroy()); voids=[]; toSpawn.length=0;
+  lineageReset();
+  if(P.evoMode){
+    buildVoids(Math.round(P.count));
+    initFood(); buildChartLegend();
+  } else {
+    destroyFood(); P.showChart=false;
+    document.getElementById('btn-chart').classList.remove('active');
+    document.getElementById('chart-overlay').classList.remove('visible');
+  }
+});
+document.getElementById('btn-eco').addEventListener('click',function(){
+  P.ecoMode=!P.ecoMode;
+  if(P.ecoMode && P.evoMode){ P.evoMode=false; document.getElementById('btn-evo').classList.remove('active'); document.getElementById('btn-evo').textContent='ENABLE EVOLUTION'; document.getElementById('evo-section').style.display='none'; }
+  this.classList.toggle('active',P.ecoMode);
+  this.textContent=P.ecoMode?'ECOSYSTEM: ON':'ENABLE ECOSYSTEM';
+  document.getElementById('eco-section').style.display=P.ecoMode?'':'none';
+  document.getElementById('btn-chart').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-tree').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-tally').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-pause').style.display=(P.evoMode||P.ecoMode)?'':'none';
+  document.getElementById('btn-randomize-evo').style.display=P.evoMode?'':'none';
+  document.getElementById('btn-randomize-eco').style.display=P.ecoMode?'':'none';
+  voids.forEach(v=>v.destroy()); voids=[]; toSpawn.length=0;
+  lineageReset();
+  if(P.ecoMode){
+    buildVoids(Math.round(P.count));
+    initFood(); buildChartLegend(); buildGroundPlane();
+    if(P.waterOn && P.topoMode==='complex') buildWaterPlane();
+  } else {
+    destroyFood(); destroyGroundPlane(); destroyWaterPlane(); P.showChart=false;
+    document.getElementById('btn-chart').classList.remove('active');
+    document.getElementById('chart-overlay').classList.remove('visible');
+  }
+});
+document.getElementById('btn-topoMode').addEventListener('click',function(){
+  P.topoMode = P.topoMode==='flat' ? 'complex' : 'flat';
+  this.classList.toggle('active', P.topoMode==='complex');
+  this.textContent = P.topoMode==='complex' ? 'TERRAIN: COMPLEX' : 'TERRAIN: FLAT';
+  document.getElementById('topo-controls').style.display = P.topoMode==='complex' ? '' : 'none';
+  if(P.ecoMode) buildGroundPlane();
+  if(P.ecoMode && P.waterOn){
+    if(P.topoMode==='complex') buildWaterPlane(); else destroyWaterPlane();
+    rebuildFood();
+  }
+});
+document.getElementById('btn-topoRegen').addEventListener('click',()=>{
+  P.topoSeed=1+Math.floor(Math.random()*999);
+  document.getElementById('r-topoSeed').value=P.topoSeed;
+  document.getElementById('v-topoSeed').textContent=P.topoSeed;
+  if(P.ecoMode){ buildGroundPlane(); rebuildFood(); }
+});
+document.getElementById('btn-waterOn').addEventListener('click',function(){
+  P.waterOn=!P.waterOn;
+  this.classList.toggle('active',P.waterOn);
+  this.textContent=P.waterOn?'💧 WATER: ON':'💧 WATER: OFF';
+  document.getElementById('water-controls').style.display=P.waterOn?'':'none';
+  if(P.waterOn && P.ecoMode && P.topoMode==='complex'){ buildWaterPlane(); rebuildFood(); }
+  else { destroyWaterPlane(); if(P.ecoMode) rebuildFood(); }
+});
+['topoAmp','topoScale','topoRough','topoSeed'].forEach(key=>{
+  const el=document.getElementById('r-'+key), vEl=document.getElementById('v-'+key);
+  if(!el) return;
+  el.addEventListener('input',()=>{
+    P[key]=parseFloat(el.value);
+    vEl.textContent=key==='topoSeed'?Math.round(P[key]):P[key].toFixed(2);
+    if(P.ecoMode&&P.topoMode==='complex'){ buildGroundPlane(); rebuildFood(); }
+  });
+});
+document.getElementById('btn-predOn').addEventListener('click',function(){
+  P.predOn=!P.predOn; this.classList.toggle('active',P.predOn); this.textContent=P.predOn?'PREDATION: ON':'PREDATION: OFF';
+});
+document.getElementById('btn-corpseFood').addEventListener('click',function(){
+  P.corpseFood=!P.corpseFood; this.classList.toggle('active',P.corpseFood); this.textContent=P.corpseFood?'CORPSE FOOD: ON':'CORPSE FOOD: OFF';
+});
+document.getElementById('btn-chart').addEventListener('click',function(){
+  P.showChart=!P.showChart;
+  this.classList.toggle('active',P.showChart);
+  document.getElementById('chart-overlay').classList.toggle('visible',P.showChart);
+});
+document.querySelectorAll('.mode-btn').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); P.boundMode=btn.dataset.mode;
+}));
+document.getElementById('btn-pause').addEventListener('click',function(){
+  P.paused=!P.paused;
+  this.classList.toggle('active',P.paused);
+  this.textContent=P.paused?'▶ RESUME':'⏸ PAUSE';
+});
+
+// ── Randomize helpers ──
+function randInRange(el){ return parseFloat(el.min)+Math.random()*(parseFloat(el.max)-parseFloat(el.min)); }
+function applySliderVal(id, key, digits, val){
+  const el=document.getElementById('r-'+id), vEl=document.getElementById('v-'+id);
+  if(!el||!vEl) return;
+  el.value=val; P[key]=val;
+  vEl.textContent=key==='flockDrain'||key==='visionDrain'?val.toFixed(4):val.toFixed(digits);
+  onParamChange(key);
+}
+// ── Slider lock buttons ──
+// Inject a 🔓/🔒 toggle into every .control-row that has a sibling range input.
+const lockedParams = new Set(); // set of slider ids (without 'r-' prefix)
+document.querySelectorAll('.control').forEach(ctrl => {
+  const row = ctrl.querySelector('.control-row');
+  const range = ctrl.querySelector('input[type="range"]');
+  if(!row || !range) return;
+  const id = range.id.replace('r-','');
+  const btn = document.createElement('button');
+  btn.className = 'lock-btn';
+  btn.title = 'Lock this slider (excluded from Randomize)';
+  btn.textContent = '🔓';
+  btn.dataset.id = id;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if(lockedParams.has(id)){ lockedParams.delete(id); btn.textContent='🔓'; btn.classList.remove('locked'); }
+    else { lockedParams.add(id); btn.textContent='🔒'; btn.classList.add('locked'); }
+  });
+  row.appendChild(btn);
+});
+
+// Helper: skip if locked
+function isLocked(id){ return lockedParams.has(id); }
+
+// Randomize evo params (metabolism + reproduction sliders)
+const EVO_RAND_PARAMS=[
+  ['foodCount','foodCount',0],['foodValue','foodValue',0],['foodVariance','foodVariance',2],
+  ['foodRegen','foodRegen',2],['baseDrain','baseDrain',1],['moveDrain','moveDrain',1],
+  ['flockDrain','flockDrain',4],['visionDrain','visionDrain',4],['turnDrain','turnDrain',2],
+  ['sizeDrainExp','sizeDrainExp',2],['reproThresh','reproThresh',0],['reproCost','reproCost',0],
+  ['mutRate','mutRate',2],['popCap','popCap',0],['lifespan','lifespan',0],
+];
+document.getElementById('btn-randomize-evo').addEventListener('click',()=>{
+  EVO_RAND_PARAMS.forEach(([id,key,d])=>{
+    if(isLocked(id)) return;
+    const el=document.getElementById('r-'+id); if(!el) return;
+    applySliderVal(id,key,d,randInRange(el));
+  });
+  recordChartEvent('randomize');
+});
+// Randomize eco params (all evo params + eco-specific ones)
+const ECO_RAND_PARAMS=[
+  ...EVO_RAND_PARAMS,
+  ['ecoGrav','ecoGrav',2],['flightCost','flightCost',1],
+  ['passiveGainBase','passiveGainBase',1],['passivityCurve','passivityCurve',2],
+  ['predRatio','predRatio',2],
+  ['groundFoodFrac','groundFoodFrac',2],['treeFoodFrac','treeFoodFrac',2],['skyFoodDrift','skyFoodDrift',2],
+];
+document.getElementById('btn-randomize-eco').addEventListener('click',()=>{
+  ECO_RAND_PARAMS.forEach(([id,key,d])=>{
+    if(isLocked(id)) return;
+    const el=document.getElementById('r-'+id); if(!el) return;
+    applySliderVal(id,key,d,randInRange(el));
+    const ecoEl=document.getElementById('r-eco-'+id), ecoV=document.getElementById('v-eco-'+id);
+    if(ecoEl) ecoEl.value=P[key];
+    if(ecoV) ecoV.textContent=key==='flockDrain'||key==='visionDrain'?P[key].toFixed(4):P[key].toFixed(d);
+  });
+  // Only randomize terrain params when in complex mode
+  if(P.topoMode==='complex'){
+    ['topoAmp','topoScale','topoRough'].forEach(key=>{
+      if(isLocked(key)) return;
+      const el=document.getElementById('r-'+key); if(!el) return;
+      P[key]=parseFloat(el.min)+Math.random()*(parseFloat(el.max)-parseFloat(el.min));
+      el.value=P[key];
+      document.getElementById('v-'+key).textContent=P[key].toFixed(2);
+    });
+    if(!isLocked('topoSeed')){
+      P.topoSeed=1+Math.floor(Math.random()*999);
+      document.getElementById('r-topoSeed').value=P.topoSeed;
+      document.getElementById('v-topoSeed').textContent=P.topoSeed;
+    }
+    buildGroundPlane();
+  }
+  if(P.ecoMode) rebuildFood();
+  recordChartEvent('randomize');
+});
+// ── Collapsible sections ──
+// Wrap every .section's non-label children in a .section-body div, then wire the label.
+document.querySelectorAll('.section').forEach(sec=>{
+  const label=sec.querySelector(':scope > .section-label');
+  if(!label) return;
+  // Collect all siblings after the label into a body wrapper
+  const body=document.createElement('div');
+  body.className='section-body';
+  const children=[...sec.children];
+  const labelIdx=children.indexOf(label);
+  children.slice(labelIdx+1).forEach(c=>body.appendChild(c));
+  sec.appendChild(body);
+  label.addEventListener('click',()=>{
+    const collapsed=body.classList.toggle('collapsed');
+    label.classList.toggle('collapsed',collapsed);
+  });
+});
+
+// ── Defaults button ──
+// Capture P defaults right after P is defined (snapshot taken at first run).
+const P_DEFAULTS = {};
+Object.assign(P_DEFAULTS, P);
+
+document.getElementById('btn-defaults').addEventListener('click',()=>{
+  // Restore all slider-bound keys to their defaults
+  Object.keys(P_DEFAULTS).forEach(key=>{
+    if(typeof P_DEFAULTS[key]!=='number') return;
+    P[key]=P_DEFAULTS[key];
+    // Update any matching slider + display (both evo and eco variants)
+    ['r-','r-eco-'].forEach(prefix=>{
+      const el=document.getElementById(prefix+key);
+      if(el) el.value=P[key];
+    });
+    ['v-','v-eco-'].forEach(prefix=>{
+      const el=document.getElementById(prefix+key);
+      if(!el) return;
+      const digits=key.includes('Drain')&&!key.includes('base')&&!key.includes('Base')? (key==='flockDrain'||key==='visionDrain'?4:2) : (Number.isInteger(P[key])?0:2);
+      el.textContent=P[key].toFixed(key==='flockDrain'||key==='visionDrain'?4:digits);
+    });
+    onParamChange(key);
+  });
+  if(P.ecoMode) rebuildFood();
+  recordChartEvent('defaults');
+});
+
+// ── Parameter presets ──
+// Keys we serialize: everything in P that's a number or boolean (not mode flags
+// that need special toggle logic, but we include them as read-only context).
+const PRESET_SKIP = new Set(['evoMode','ecoMode','showChart','paused']); // toggled via buttons, not sliders
+
+function serializeParams(){
+  const out = {};
+  Object.keys(P).forEach(k => {
+    if(PRESET_SKIP.has(k)) return;
+    if(typeof P[k] === 'number' || typeof P[k] === 'boolean' || typeof P[k] === 'string') out[k] = P[k];
+  });
+  return JSON.stringify(out);
+}
+
+function applyPresetString(str){
+  let parsed;
+  try { parsed = JSON.parse(str.trim()); }
+  catch(e){ return 'Invalid JSON — check your string.'; }
+  if(typeof parsed !== 'object' || Array.isArray(parsed)) return 'Expected a JSON object.';
+  let applied = 0, skipped = 0;
+  Object.keys(parsed).forEach(key => {
+    if(PRESET_SKIP.has(key)) return;
+    const val = parsed[key];
+    if(!(key in P)) { skipped++; return; }
+    if(typeof val === 'boolean'){
+      P[key] = val; applied++;
+    } else if(typeof val === 'number'){
+      P[key] = val;
+      // Update both the primary slider and any eco-mirror
+      ['r-','r-eco-'].forEach(prefix => {
+        const el = document.getElementById(prefix + key);
+        if(el) el.value = val;
+      });
+      // Update display values
+      ['v-','v-eco-'].forEach(prefix => {
+        const el = document.getElementById(prefix + key);
+        if(!el) return;
+        const digits = (key==='flockDrain'||key==='visionDrain') ? 4
+          : Number.isInteger(val) ? 0 : 2;
+        el.textContent = val.toFixed(digits);
+      });
+      onParamChange(key);
+      applied++;
+    } else if(typeof val === 'string'){
+      P[key] = val; applied++;
+      onParamChange(key);
+    } else { skipped++; }
+  });
+  if(P.ecoMode) rebuildFood();
+  const msg = `Applied ${applied} param${applied!==1?'s':''}${skipped?' ('+skipped+' unknown skipped)':''}`;
+  return msg;
+}
+
+function presetMsg(text, ok){
+  const el = document.getElementById('preset-msg');
+  el.textContent = text;
+  el.style.color = ok ? '#44ff88' : '#ff6666';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.textContent = ''; }, 3500);
+}
+
+document.getElementById('btn-copy-params').addEventListener('click', () => {
+  const str = serializeParams();
+  document.getElementById('preset-box').value = str;
+  navigator.clipboard.writeText(str).then(
+    ()  => presetMsg('Copied to clipboard ✓', true),
+    ()  => presetMsg('Saved to box (clipboard unavailable)', true)
+  );
+});
+
+document.getElementById('btn-paste-params').addEventListener('click', () => {
+  const str = document.getElementById('preset-box').value.trim();
+  if(!str){ presetMsg('Paste a preset string first.', false); return; }
+  const result = applyPresetString(str);
+  presetMsg(result, result.startsWith('Applied'));
+});
+
+// Focus style for textarea
+document.getElementById('preset-box').addEventListener('focus', function(){ this.style.borderColor='var(--accent)'; });
+document.getElementById('preset-box').addEventListener('blur',  function(){ this.style.borderColor='var(--border)'; });
+
+document.getElementById('btn-reset').addEventListener('click',()=>{
+  totalBirths=0; totalDeaths=0; maxGen=0; traitHistory=[]; chartEvents=[]; lastSampleBirths=0; lastSampleDeaths=0; foodRegenAcc=0;
+  lineageReset(); tallyClear();
+  destroyFood(); destroyWaterPlane(); buildBox(); buildAxes(); buildVoids(Math.round(P.count));
+  if(P.evoMode||P.ecoMode) initFood();
+  if(P.ecoMode) buildGroundPlane();
+  if(P.ecoMode && P.waterOn && P.topoMode==='complex') buildWaterPlane();
+});
+document.getElementById('r-foodCount').addEventListener('input',()=>{ if(P.evoMode||P.ecoMode) rebuildFood(); });
+
+// ── Linked sliders: eco-section mirrors evo-section for shared params ──
+// Each linked pair writes to the same P key and keeps both sliders+displays in sync.
+const ECO_LINKED = [
+  // [ecoSuffix, evoId, key, digits, extraCb]
+  ['foodCount',  'foodCount',  'foodCount',  0, ()=>{ if(P.ecoMode) rebuildFood(); }],
+  ['foodRegen',  'foodRegen',  'foodRegen',  2, null],
+  ['foodValue',  'foodValue',  'foodValue',  0, null],
+  ['foodVariance','foodVariance','foodVariance',2, null],
+  ['baseDrain',  'baseDrain',  'baseDrain',  1, null],
+  ['sizeDrainExp','sizeDrainExp','sizeDrainExp',2, null],
+  ['moveDrain',  'moveDrain',  'moveDrain',  1, null],
+  ['flockDrain', 'flockDrain', 'flockDrain', 4, null],
+  ['visionDrain','visionDrain','visionDrain',4, null],
+  ['turnDrain',  'turnDrain',  'turnDrain',  2, null],
+  ['reproThresh','reproThresh','reproThresh',0, null],
+  ['reproCost',  'reproCost',  'reproCost',  0, null],
+  ['mutRate',    'mutRate',    'mutRate',    2, null],
+  ['popCap',     'popCap',     'popCap',     0, null],
+  ['lifespan',   'lifespan',   'lifespan',   0, null],
+];
+ECO_LINKED.forEach(([ecoid, evoid, key, digits, cb])=>{
+  const ecoEl  = document.getElementById('r-eco-'+ecoid);
+  const ecoV   = document.getElementById('v-eco-'+ecoid);
+  const evoEl  = document.getElementById('r-'+evoid);
+  const evoV   = document.getElementById('v-'+evoid);
+  function syncAll(val){
+    P[key]=val;
+    const txt = key==='flockDrain'||key==='visionDrain' ? val.toFixed(4) : val.toFixed(digits);
+    if(ecoV)  ecoV.textContent  = txt;
+    if(evoV)  evoV.textContent  = txt;
+    if(ecoEl) ecoEl.value = val;
+    if(evoEl) evoEl.value = val;
+    onParamChange(key);
+    recordChartEvent(key);
+    if(cb) cb();
+  }
+  if(ecoEl) ecoEl.addEventListener('input', ()=>syncAll(parseFloat(ecoEl.value)));
+  // Patch the existing evo slider to also update eco display
+  if(evoEl){
+    evoEl.addEventListener('input', ()=>{
+      if(ecoV) ecoV.textContent = evoV ? evoV.textContent : parseFloat(evoEl.value).toFixed(digits);
+      if(ecoEl) ecoEl.value = evoEl.value;
+    });
+  }
+});
+// Box color picker
+document.getElementById('r-boxColor').addEventListener('input', function(){
+  P.boxColor = this.value; buildBox(); recordChartEvent('boxColor');
+});
+
+// ── Three.js globals ──
+let scene, camera, renderer;
+let voids=[], toSpawn=[];
+let trailGroup, boxHelper, axesGroup, bubbleGroup;
+let frameCount=0, fpsTime=0;
+let totalBirths=0, totalDeaths=0, maxGen=0;
+
+// ── Lineage tracking ──
+let lineageStore = new Map(); // eid → node
+let nextEid = 0;
+let simTime = 0; // total simulation seconds elapsed
+
+let _treeLayoutDirty = true; // set true whenever lineageStore changes
+
+function lineageRegister(boid, parentEid){
+  const node = {
+    eid: boid.eid,
+    parentEid: parentEid,
+    gen: boid.gen,
+    bornAt: simTime,
+    diedAt: null,
+    causeOfDeath: null, // 'age' | 'starvation' | 'predation'
+    dna: Object.assign({}, boid.dna), // snapshot
+    childEids: [],
+    living: true,
+  };
+  lineageStore.set(boid.eid, node);
+  if(parentEid != null && lineageStore.has(parentEid)){
+    lineageStore.get(parentEid).childEids.push(boid.eid);
+  }
+  _treeLayoutDirty = true;
+}
+
+function lineageKill(boid, cause){
+  const node = lineageStore.get(boid.eid);
+  if(!node) return;
+  node.diedAt = simTime;
+  node.causeOfDeath = cause;
+  node.living = false;
+  _treeLayoutDirty = true;
+}
+
+function lineageReset(){
+  lineageStore.clear();
+  nextEid = 0;
+  simTime = 0;
+  _treeChampion = [];
+  _treeLayoutDirty = true;
+}
+let UP, tmpQ, tmpV, tmpV2;
+
+// Shared wireframe geometries for perception bubbles (created in main)
+let wfSphereGeo=null, wfConeGeo=null;
+
+// ── Food System ──
+let foodActive=null, foodEnergy=null, foodSizeAttr=null, foodLayer=null, foodVelX=null, foodVelZ=null, foodCooldown=null;
+let foodGeo=null, foodMat=null, foodPoints=null;
+let foodRegenAcc=0;
+
+const FOOD_VSHADER=`
+attribute float aSize;
+attribute float aLayer;
+uniform float uScale;
+varying float vLayer;
+void main(){
+  vLayer=aLayer;
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  gl_PointSize=max(1.0,aSize*uScale/(-mv.z));
+  gl_Position=projectionMatrix*mv;
+}`;
+const FOOD_FSHADER=`
+varying float vLayer;
+void main(){
+  vec2 c=gl_PointCoord-0.5;
+  if(dot(c,c)>0.25) discard;
+  // 0=ground (yellow-green), 1=tree (orange), 2=sky (cyan), 3=water (blue-white)
+  vec4 col;
+  if(vLayer<0.5)      col=vec4(0.55,0.90,0.15,0.92);
+  else if(vLayer<1.5) col=vec4(1.0, 0.55,0.10,0.92);
+  else if(vLayer<2.5) col=vec4(0.30,0.90,1.0, 0.85);
+  else                col=vec4(0.55,0.85,1.0, 0.95);
+  gl_FragColor=col;
+}`;
+
+function foodEnergyForIdx(layerMult){ layerMult=layerMult||1; return P.foodValue*(1.0+(Math.random()*2-1)*P.foodVariance)*layerMult; }
+function foodSizeForEnergy(e){ const mx=P.foodValue*(1+P.foodVariance); return 0.15+(e/mx)*0.65; }
+
+function initFood(){
+  destroyFood();
+  const n=Math.round(P.foodCount);
+  foodActive  =new Float32Array(n*3);
+  foodEnergy  =new Float32Array(n);
+  foodSizeAttr=new Float32Array(n);
+  foodLayer   =new Float32Array(n);
+  foodVelX    =new Float32Array(n);
+  foodVelZ    =new Float32Array(n);
+  foodCooldown=new Float32Array(n); // 0 = ready, >0 = seconds until respawn
+  for(let i=0;i<n;i++) rndFood(i);
+  foodGeo=new THREE.BufferGeometry();
+  foodGeo.setAttribute('position',new THREE.BufferAttribute(foodActive,3));
+  foodGeo.setAttribute('aSize',   new THREE.BufferAttribute(foodSizeAttr,1));
+  foodGeo.setAttribute('aLayer',  new THREE.BufferAttribute(foodLayer,1));
+  foodMat=new THREE.ShaderMaterial({
+    vertexShader:FOOD_VSHADER, fragmentShader:FOOD_FSHADER,
+    uniforms:{uScale:{value:300}}, transparent:true, depthWrite:false,
+  });
+  foodPoints=new THREE.Points(foodGeo,foodMat);
+  scene.add(foodPoints);
+}
+
+function rndFood(i){
+  const h=P.cube/2;
+  let layer=1; // default (non-eco or sky)
+  if(P.ecoMode){
+    const rng=Math.random();
+    const gf=P.groundFoodFrac, tf=P.treeFoodFrac;
+    const wf = (P.waterOn && P.topoMode==='complex') ? P.waterFoodFrac : 0;
+    let layer;
+    if(wf>0 && rng<wf){
+      // Water layer: only where terrain is genuinely submerged (groundY < waterWorldY).
+      // Position food between the terrain floor and the water surface.
+      layer=3;
+      const wy=getWaterWorldY();
+      let x,z,groundY;
+      let tries=0;
+      do {
+        x=(Math.random()-0.5)*P.cube*0.88;
+        z=(Math.random()-0.5)*P.cube*0.88;
+        groundY=getGroundY(x,z);
+        tries++;
+      } while(groundY>=wy && tries<20);
+      if(groundY>=wy){
+        // No valid underwater spot found — fall back to ground layer
+        layer=0;
+        foodActive[i*3]  =x;
+        foodActive[i*3+1]=groundY+Math.random()*P.cube*0.06;
+        foodActive[i*3+2]=z;
+      } else {
+        const depth=wy-groundY;
+        foodActive[i*3]  =x;
+        foodActive[i*3+1]=groundY+depth*(0.1+Math.random()*0.8);
+        foodActive[i*3+2]=z;
+      }
+      foodVelX[i]=0; foodVelZ[i]=0;
+    } else if(rng<wf+gf){
+      // Ground: just above terrain surface
+      layer=0;
+      const x=(Math.random()-0.5)*P.cube*0.88;
+      const z=(Math.random()-0.5)*P.cube*0.88;
+      const groundY=getGroundY(x,z);
+      foodActive[i*3]  =x;
+      foodActive[i*3+1]=groundY+Math.random()*P.cube*0.06;
+      foodActive[i*3+2]=z;
+      foodVelX[i]=0; foodVelZ[i]=0;
+    } else if(rng<wf+gf+tf){
+      // Tree layer: above terrain surface
+      layer=1;
+      const x=(Math.random()-0.5)*P.cube*0.85;
+      const z=(Math.random()-0.5)*P.cube*0.85;
+      const groundY=getGroundY(x,z);
+      foodActive[i*3]  =x;
+      foodActive[i*3+1]=groundY+P.cube*0.12+Math.random()*P.cube*0.20;
+      foodActive[i*3+2]=z;
+      foodVelX[i]=0; foodVelZ[i]=0;
+    } else {
+      // Sky: top 30% of absolute cube
+      layer=2;
+      foodActive[i*3]  =(Math.random()-0.5)*P.cube*0.85;
+      foodActive[i*3+1]=h*0.35+Math.random()*h*0.55;
+      foodActive[i*3+2]=(Math.random()-0.5)*P.cube*0.85;
+      const spd=P.skyFoodDrift*(0.5+Math.random());
+      const ang=Math.random()*Math.PI*2;
+      foodVelX[i]=Math.cos(ang)*spd; foodVelZ[i]=Math.sin(ang)*spd;
+    }
+    foodLayer[i]=layer;
+  } else {
+    foodActive[i*3]  =(Math.random()-0.5)*P.cube*0.93;
+    foodActive[i*3+1]=(Math.random()-0.5)*P.cube*0.93;
+    foodActive[i*3+2]=(Math.random()-0.5)*P.cube*0.93;
+    foodLayer[i]=1;
+    foodVelX[i]=0; foodVelZ[i]=0;
+  }
+  const e=foodEnergyForIdx(layer===3 ? 1.4 : 1);
+  foodEnergy[i]=e;
+  foodSizeAttr[i]=foodSizeForEnergy(e);
+}
+
+// Hide a food slot and start its respawn cooldown.
+// The particle is moved far out of view and given zero size so it's invisible.
+// Cooldown is stored as a positive number of seconds, OR -1 as a single-frame
+// sentinel so that even at foodRegen=0 the slot is marked depleted this frame.
+function depleteFood(i){
+  foodEnergy[i]   = 0;
+  foodSizeAttr[i] = 0;
+  foodActive[i*3] = 1e9; foodActive[i*3+1] = 1e9; foodActive[i*3+2] = 1e9;
+  // -1 sentinel means "will respawn next regen tick" regardless of foodRegen setting.
+  // This prevents multiple boids eating the same particle in the same frame.
+  const delay = Math.max(0, P.foodRegen) * (0.5 + Math.random());
+  foodCooldown[i] = delay > 0 ? delay : -1;
+  if(foodGeo){
+    foodGeo.attributes.position.needsUpdate = true;
+    foodGeo.attributes.aSize.needsUpdate    = true;
+  }
+}
+
+// Respawn a food particle in-place, preserving its layer assignment
+function respawnFood(i){
+  const layer = foodLayer[i];
+  const h=P.cube/2;
+  if(P.ecoMode){
+    if(layer===0){
+      const x=(Math.random()-0.5)*P.cube*0.88;
+      const z=(Math.random()-0.5)*P.cube*0.88;
+      const groundY=getGroundY(x,z);
+      foodActive[i*3]=x; foodActive[i*3+1]=groundY+Math.random()*P.cube*0.06; foodActive[i*3+2]=z;
+      foodVelX[i]=0; foodVelZ[i]=0;
+    } else if(layer===1){
+      const x=(Math.random()-0.5)*P.cube*0.85;
+      const z=(Math.random()-0.5)*P.cube*0.85;
+      const groundY=getGroundY(x,z);
+      foodActive[i*3]=x; foodActive[i*3+1]=groundY+P.cube*0.12+Math.random()*P.cube*0.20; foodActive[i*3+2]=z;
+      foodVelX[i]=0; foodVelZ[i]=0;
+    } else if(layer===3){
+      // Water layer: only where terrain is genuinely submerged
+      const wy=getWaterWorldY();
+      let x,z,groundY;
+      let tries=0;
+      do {
+        x=(Math.random()-0.5)*P.cube*0.88;
+        z=(Math.random()-0.5)*P.cube*0.88;
+        groundY=getGroundY(x,z);
+        tries++;
+      } while(groundY>=wy && tries<20);
+      if(groundY>=wy){
+        // Fall back to ground surface if no submerged spot found
+        foodActive[i*3]=x; foodActive[i*3+1]=groundY+Math.random()*P.cube*0.06; foodActive[i*3+2]=z;
+      } else {
+        const depth=wy-groundY;
+        foodActive[i*3]=x; foodActive[i*3+1]=groundY+depth*(0.1+Math.random()*0.8); foodActive[i*3+2]=z;
+      }
+      foodVelX[i]=0; foodVelZ[i]=0;
+    } else {
+      foodActive[i*3]  =(Math.random()-0.5)*P.cube*0.85;
+      foodActive[i*3+1]=h*0.35+Math.random()*h*0.55;
+      foodActive[i*3+2]=(Math.random()-0.5)*P.cube*0.85;
+      const spd=P.skyFoodDrift*(0.5+Math.random());
+      const ang=Math.random()*Math.PI*2;
+      foodVelX[i]=Math.cos(ang)*spd; foodVelZ[i]=Math.sin(ang)*spd;
+    }
+  } else {
+    foodActive[i*3]  =(Math.random()-0.5)*P.cube*0.93;
+    foodActive[i*3+1]=(Math.random()-0.5)*P.cube*0.93;
+    foodActive[i*3+2]=(Math.random()-0.5)*P.cube*0.93;
+  }
+  const e=foodEnergyForIdx(layer===3 ? 1.4 : 1);
+  foodEnergy[i]=e;
+  foodSizeAttr[i]=foodSizeForEnergy(e);
+}
+function destroyFood(){
+  if(foodPoints){scene.remove(foodPoints);foodGeo.dispose();foodMat.dispose();foodPoints=null;foodGeo=null;foodMat=null;}
+  foodActive=null; foodEnergy=null; foodSizeAttr=null; foodLayer=null; foodVelX=null; foodVelZ=null; foodCooldown=null;
+}
+function rebuildFood(){ initFood(); }
+
+// Drift sky food and gently bobble tree food each frame
+// Count down per-slot cooldowns and respawn when they reach zero.
+function updateFoodRegen(dt){
+  if(!foodActive||!foodCooldown) return;
+  const n=foodActive.length/3;
+  let dirty=false;
+  for(let i=0;i<n;i++){
+    if(foodCooldown[i]===0) continue; // slot is active, nothing to do
+    if(foodCooldown[i]===-1){
+      // sentinel: respawn immediately (foodRegen=0 path)
+      foodCooldown[i]=0;
+      respawnFood(i);
+      dirty=true;
+      continue;
+    }
+    foodCooldown[i]-=dt;
+    if(foodCooldown[i]<=0){
+      foodCooldown[i]=0;
+      respawnFood(i);
+      dirty=true;
+    }
+  }
+  if(dirty&&foodGeo){
+    foodGeo.attributes.position.needsUpdate=true;
+    foodGeo.attributes.aSize.needsUpdate=true;
+  }
+}
+
+function updateFoodDrift(dt){
+  if(!foodActive||!P.ecoMode||P.skyFoodDrift<=0) return;
+  const n=foodActive.length/3; const h=P.cube/2; let dirty=false;
+  for(let i=0;i<n;i++){
+    if(foodLayer[i]!==2) continue;
+    // Slowly change drift direction
+    foodVelX[i]+=(Math.random()-0.5)*P.skyFoodDrift*dt*0.5;
+    foodVelZ[i]+=(Math.random()-0.5)*P.skyFoodDrift*dt*0.5;
+    const spd=Math.sqrt(foodVelX[i]*foodVelX[i]+foodVelZ[i]*foodVelZ[i]);
+    const maxS=P.skyFoodDrift*1.5;
+    if(spd>maxS){foodVelX[i]*=maxS/spd;foodVelZ[i]*=maxS/spd;}
+    foodActive[i*3]  +=foodVelX[i]*dt*12;
+    foodActive[i*3+2]+=foodVelZ[i]*dt*12;
+    // gentle Y sine bob
+    foodActive[i*3+1]+=Math.sin(Date.now()*0.001+i)*0.01;
+    // Wrap XZ
+    for(const ax of [0,2]){ if(foodActive[i*3+ax]>h)foodActive[i*3+ax]-=P.cube; if(foodActive[i*3+ax]<-h)foodActive[i*3+ax]+=P.cube; }
+    // Clamp Y to sky band
+    if(foodActive[i*3+1]<h*0.3) foodActive[i*3+1]=h*0.3;
+    if(foodActive[i*3+1]>h*0.95) foodActive[i*3+1]=h*0.95;
+    dirty=true;
+  }
+  if(dirty&&foodGeo) foodGeo.attributes.position.needsUpdate=true;
+}
+
+// Drop a food particle at a dead boid's position
+function spawnCorpseFood(boid){
+  if(!foodActive||!P.corpseFood||boid.energy<1) return;
+  const n=foodActive.length/3;
+  // Find ground-layer slots: prefer depleted ones so we don't overwrite live food.
+  const depleted=[], active=[];
+  for(let i=0;i<n;i++){
+    if(foodLayer[i]!==0) continue;
+    if(foodCooldown[i]!==0) depleted.push(i); else active.push(i);
+  }
+  const pool = depleted.length>0 ? depleted : active.length>0 ? active : null;
+  const fi = pool
+    ? pool[Math.floor(Math.random()*pool.length)]
+    : Math.floor(Math.random()*n); // last resort: any slot
+  foodActive[fi*3]=boid.pos.x;
+  foodActive[fi*3+1]=Math.max(getGroundY(boid.pos.x,boid.pos.z)+0.5, boid.pos.y);
+  foodActive[fi*3+2]=boid.pos.z;
+  foodEnergy[fi]=boid.energy*0.55;
+  foodSizeAttr[fi]=foodSizeForEnergy(foodEnergy[fi]);
+  foodLayer[fi]=0;
+  foodVelX[fi]=0; foodVelZ[fi]=0;
+  if(foodGeo){
+    foodGeo.attributes.position.needsUpdate=true;
+    foodGeo.attributes.aSize.needsUpdate=true;
+    foodGeo.attributes.aLayer.needsUpdate=true;
+  }
+}
+
+// ── Ground Plane (Eco mode) ──
+// ── Terrain system ──
+let groundPlane=null;
+let _terrainHeights=null; // Float32Array of sampled heights for fast lookup
+let _terrainSegs=64;      // resolution of height grid
+
+// Deterministic pseudo-random based on seed
+// ── Terrain noise: value noise FBM with domain warping ──
+// Builds a seeded random permutation table and a gradient grid for smooth value noise.
+// Domain warping displaces the lookup coordinates using a second noise pass, creating
+// the folded ridges and curved valleys characteristic of real erosion-shaped terrain.
+
+let _noiseTab = null; // 256-entry permutation table
+let _noiseGrad = null; // 256 random gradient values [0,1]
+
+function buildNoiseTables(seed){
+  _noiseTab  = new Uint8Array(512);
+  _noiseGrad = new Float32Array(256);
+  // LCG seeded fill
+  let s = (seed * 1664525 + 1013904223) >>> 0;
+  const rng = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  const perm = new Uint8Array(256);
+  for(let i=0;i<256;i++) perm[i]=i;
+  for(let i=255;i>0;i--){ const j=Math.floor(rng()*(i+1)); [perm[i],perm[j]]=[perm[j],perm[i]]; }
+  for(let i=0;i<512;i++) _noiseTab[i]=perm[i&255];
+  for(let i=0;i<256;i++) _noiseGrad[i]=rng();
+}
+
+// Smooth cubic Hermite interpolation
+function _fade(t){ return t*t*t*(t*(t*6-15)+10); }
+
+// 2D value noise [0,1] — bilinear interp of random corner values
+function _vnoise(x,z){
+  const xi=Math.floor(x)&255, zi=Math.floor(z)&255;
+  const xf=x-Math.floor(x), zf=z-Math.floor(z);
+  const u=_fade(xf), v=_fade(zf);
+  const aa=_noiseGrad[_noiseTab[_noiseTab[xi  ]+zi  ]];
+  const ba=_noiseGrad[_noiseTab[_noiseTab[xi+1]+zi  ]];
+  const ab=_noiseGrad[_noiseTab[_noiseTab[xi  ]+zi+1]];
+  const bb=_noiseGrad[_noiseTab[_noiseTab[xi+1]+zi+1]];
+  return aa + u*(ba-aa) + v*(ab-aa) + u*v*(aa-ba-ab+bb);
+}
+
+// Fractal Brownian Motion: sum of value noise at increasing frequencies
+// rough 0→1 adds octaves 1→6; lacunarity ~2, gain ~0.5
+function _fbm(x, z, octaves){
+  let val=0, amp=0.5, freq=1, max=0;
+  for(let o=0;o<octaves;o++){
+    val += amp * _vnoise(x*freq, z*freq);
+    max += amp;
+    freq *= 2.03;
+    amp  *= 0.49;
+  }
+  return val/max; // [0,1]
+}
+
+// Main entry — returns world Y offset above floor. Range [0, amp*cube].
+function terrainNoise(x, z, amp, scale, rough, seed){
+  if(P.topoMode==='flat') return 0;
+  if(!_noiseTab) buildNoiseTables(seed);
+  const octaves = 1 + Math.round(rough * 5); // 1–6 octaves
+  // Normalised coordinates
+  const nx = x * scale * 0.8;
+  const nz = z * scale * 0.8;
+  // Domain warp: offset coords by another fbm pass to break up the grid regularity.
+  // Two warp passes give ridge-like structures; warp strength scales with roughness.
+  const warpStr = 1.5 + rough * 2.5;
+  const wx = _fbm(nx + 0.0, nz + 0.0, Math.max(1, octaves-1));
+  const wz = _fbm(nx + 5.2, nz + 1.3, Math.max(1, octaves-1));
+  const h  = _fbm(nx + wx*warpStr, nz + wz*warpStr, octaves);
+  // h is in [0,1]; raise to a power to flatten valleys and sharpen peaks
+  const shaped = Math.pow(h, 1.0 + (1.0 - rough) * 0.8);
+  return shaped * amp * P.cube;
+}
+
+// Must rebuild tables when seed changes
+let _lastNoiseSeed = -1;
+function _ensureNoiseTables(seed){
+  if(seed !== _lastNoiseSeed){ buildNoiseTables(seed); _lastNoiseSeed=seed; }
+}
+
+// Rebuild the height lookup grid from current params
+function buildTerrainGrid(){
+  _ensureNoiseTables(P.topoSeed);
+  const n=_terrainSegs;
+  _terrainHeights=new Float32Array((n+1)*(n+1));
+  const h=P.cube/2;
+  for(let zi=0;zi<=n;zi++){
+    for(let xi=0;xi<=n;xi++){
+      const x=-h+(xi/n)*P.cube;
+      const z=-h+(zi/n)*P.cube;
+      _terrainHeights[zi*(n+1)+xi]=terrainNoise(x,z,P.topoAmp,P.topoScale,P.topoRough,P.topoSeed);
+    }
+  }
+}
+
+// Bilinear interpolation lookup — fast ground height at any world XZ
+function getGroundY(x,z){
+  if(P.topoMode==='flat'||!_terrainHeights) return -P.cube/2;
+  const h=P.cube/2, n=_terrainSegs;
+  const fx=Math.max(0,Math.min(1,(x+h)/P.cube));
+  const fz=Math.max(0,Math.min(1,(z+h)/P.cube));
+  const xi=Math.min(n-1,Math.floor(fx*n));
+  const zi=Math.min(n-1,Math.floor(fz*n));
+  const tx=fx*n-xi, tz=fz*n-zi;
+  const i00=zi*(n+1)+xi, i10=zi*(n+1)+xi+1, i01=(zi+1)*(n+1)+xi, i11=(zi+1)*(n+1)+xi+1;
+  const h00=_terrainHeights[i00],h10=_terrainHeights[i10],h01=_terrainHeights[i01],h11=_terrainHeights[i11];
+  return -P.cube/2 + (h00*(1-tx)*(1-tz) + h10*tx*(1-tz) + h01*(1-tx)*tz + h11*tx*tz);
+}
+
+// Returns true if terrain blocks line-of-sight between two world points.
+// Only meaningful in eco+complex mode — returns false otherwise.
+// Marches along the segment in 6 steps and checks if any point dips below terrain.
+const _LOS_STEPS = 6;
+function terrainBlocksLOS(ax,ay,az, bx,by,bz){
+  if(P.topoMode!=='complex'||!_terrainHeights) return false;
+  for(let s=1;s<_LOS_STEPS;s++){
+    const t=s/_LOS_STEPS;
+    const x=ax+t*(bx-ax), y=ay+t*(by-ay), z=az+t*(bz-az);
+    if(y < getGroundY(x,z)) return true;
+  }
+  return false;
+}
+
+function buildGroundPlane(){
+  destroyGroundPlane();
+  const h=P.cube/2;
+  const segs = P.topoMode==='complex' ? _terrainSegs : 1;
+  const geo=new THREE.PlaneGeometry(P.cube,P.cube,segs,segs);
+  geo.rotateX(-Math.PI/2);
+
+  if(P.topoMode==='complex'){
+    buildTerrainGrid(); // also calls _ensureNoiseTables
+    const pos=geo.attributes.position;
+    const n=segs;
+    // PlaneGeometry after rotateX: vertices in row-major order xi=0..n, zi=0..n
+    // After rotateX(-π/2): x stays x, old y→z (negated), old z→y.
+    // We need to lift the Y component of each vertex.
+    for(let zi=0;zi<=n;zi++){
+      for(let xi=0;xi<=n;xi++){
+        const vi=zi*(n+1)+xi;
+        // Map vertex xi/zi back to world XZ
+        const wx=-h+(xi/n)*P.cube;
+        const wz=-h+(zi/n)*P.cube;
+        const wy=terrainNoise(wx,wz,P.topoAmp,P.topoScale,P.topoRough,P.topoSeed);
+        pos.setY(vi, pos.getY(vi)+wy);
+      }
+    }
+    pos.needsUpdate=true;
+    geo.computeVertexNormals();
+  }
+
+  const mat=new THREE.MeshStandardMaterial({
+    color:P.topoMode==='complex'?0x2a4a1a:0x1a3a12,
+    transparent:true, opacity:0.45, roughness:0.9, metalness:0,
+    side:THREE.DoubleSide, wireframe:false,
+  });
+  groundPlane=new THREE.Mesh(geo,mat);
+  groundPlane.position.y=-h;
+  scene.add(groundPlane);
+}
+
+function destroyGroundPlane(){
+  if(groundPlane){groundPlane.geometry.dispose();groundPlane.material.dispose();scene.remove(groundPlane);groundPlane=null;}
+}
+
+// ── Water plane ──
+let waterPlane = null;
+
+// World Y of the water surface. waterLevel is a 0-1 fraction of cube height above the floor.
+function getWaterWorldY(){
+  return -P.cube/2 + P.waterLevel * P.cube;
+}
+
+function isInWater(pos){
+  return P.waterOn && P.topoMode==='complex' && pos.y < getWaterWorldY();
+}
+
+function buildWaterPlane(){
+  destroyWaterPlane();
+  if(!P.waterOn || P.topoMode!=='complex') return;
+  const geo = new THREE.PlaneGeometry(P.cube * 1.01, P.cube * 1.01);
+  geo.rotateX(-Math.PI/2);
+  const mat = new THREE.MeshStandardMaterial({
+    color:0x0055cc, emissive:0x001133, emissiveIntensity:0.4,
+    transparent:true, opacity:0.38, roughness:0.1, metalness:0.1,
+    side:THREE.DoubleSide,
+  });
+  waterPlane = new THREE.Mesh(geo, mat);
+  waterPlane.position.y = getWaterWorldY();
+  scene.add(waterPlane);
+}
+
+function destroyWaterPlane(){
+  if(waterPlane){ waterPlane.geometry.dispose(); waterPlane.material.dispose(); scene.remove(waterPlane); waterPlane=null; }
+}
+
+// ── DNA helpers ──
+const PI = Math.PI;
+// Perception volumes used for metabolism
+function sphereVol(r)    { return (4/3)*PI*r*r*r; }
+function coneVol(h,ang)  { const t=Math.tan(ang); return (PI/3)*h*h*h*t*t; }
+
+function mutate(v,r,lo,hi){ return Math.max(lo,Math.min(hi,v+(Math.random()*2-1)*r*v)); }
+
+function makeSeedDNA(){
+  const va=P.visionAngle*(PI/180);
+  const base = {
+    maxSpeed:   P.speed      *(0.65+Math.random()*0.7),
+    flockSphere:P.flockSphere*(0.65+Math.random()*0.7),
+    visionRange:P.visionRange*(0.65+Math.random()*0.7),
+    visionAngle:va           *(0.7 +Math.random()*0.6),
+    bodySize:   0.65+Math.random()*0.7,
+    turnRate:   0.5+Math.random()*1.0,
+    separation: P.separation *(0.6+Math.random()*0.8),
+    alignment:  P.alignment  *(0.6+Math.random()*0.8),
+    cohesion:   P.cohesion   *(0.6+Math.random()*0.8),
+    lifespan:   P.lifespan   *(0.65+Math.random()*0.7),
+    hue:        Math.random(),
+  };
+  if(P.ecoMode){
+    base.passiveGain  = Math.random()*2.0;
+    base.huntDrive    = Math.random()*1.2;
+    base.fleeDrive    = Math.random()*1.5;
+    base.preferredAlt = (Math.random()-0.5)*2;
+  }
+  return base;
+}
+function childDNA(p){
+  const r=P.mutRate;
+  const c = {
+    maxSpeed:   mutate(p.maxSpeed,   r, 0.05, 10),
+    flockSphere:mutate(p.flockSphere,r, 0.3,  22),
+    visionRange:mutate(p.visionRange,r, 0.5,  35),
+    visionAngle:mutate(p.visionAngle,r, 0.05, 1.4),
+    bodySize:   mutate(p.bodySize,   r, 0.1,  5.0),
+    turnRate:   mutate(p.turnRate,   r, 0.1,  3.0),
+    separation: mutate(p.separation, r, 0,    10),
+    alignment:  mutate(p.alignment,  r, 0,    10),
+    cohesion:   mutate(p.cohesion,   r, 0,    10),
+    lifespan:   mutate(p.lifespan,   r, 5,   200),
+    hue:        (p.hue+(Math.random()-0.5)*0.07+1)%1,
+  };
+  if(P.ecoMode){
+    c.passiveGain  = mutate(p.passiveGain||0, r, 0, 4.0);
+    c.huntDrive    = mutate(p.huntDrive||0,   r, 0, 3.0);
+    c.fleeDrive    = mutate(p.fleeDrive||0,   r, 0, 3.0);
+    c.preferredAlt = Math.max(-1,Math.min(1, (p.preferredAlt||0)+(Math.random()-0.5)*r*0.6));
+  }
+  return c;
+}
+function hueToHex(h){
+  const c=(1-Math.abs(2*0.55-1))*0.9, x=c*(1-Math.abs((h*6)%2-1)), m=0.55-c/2;
+  let r,g,b;
+  const hi=Math.floor(h*6);
+  if(hi===0){r=c;g=x;b=0;}else if(hi===1){r=x;g=c;b=0;}else if(hi===2){r=0;g=c;b=x;}
+  else if(hi===3){r=0;g=x;b=c;}else if(hi===4){r=x;g=0;b=c;}else{r=c;g=0;b=x;}
+  return ((Math.round((r+m)*255)<<16)|(Math.round((g+m)*255)<<8)|(Math.round((b+m)*255)));
+}
+
+// ── Perception bubble helpers ──
+// Create shared wireframe geometries (unit-sized, scaled per boid each frame)
+function makeWireframeSphere(segs=8){
+  return new THREE.WireframeGeometry(new THREE.SphereGeometry(1, segs, segs));
+}
+function makeWireframeCone(segs=10){
+  // ConeGeometry: apex at +height/2, base at -height/2, opening toward -Y
+  // We want: apex at y=0, cone opens toward +Y (forward direction of boid)
+  // Step 1: translate so apex at y=0, base at y=-1
+  // Step 2: rotate 180° around X so base is at y=+1 (forward)
+  const geo = new THREE.ConeGeometry(1, 1, segs, 1, true); // open base
+  geo.translate(0, -0.5, 0);
+  geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI));
+  return new THREE.WireframeGeometry(geo);
+}
+
+// ── Niche glow color helper ──
+// Returns {r,g,b} (0–1) for the ecological role glow, plus an intensity 0–1.
+// plant=green, predator=red, herbivore/prey=cyan, generalist=dim white.
+function nicheGlow(dna){
+  const plant = Math.min(1, (dna.passiveGain||0) / 2.5);           // 0–1
+  const pred  = Math.min(1, (dna.huntDrive||0)   / 1.5);           // 0–1
+  const prey  = Math.min(1, (dna.fleeDrive||0)   / 1.5) * (1-pred*0.7); // shy if also predator
+
+  const total = plant + pred + prey;
+  if(total < 0.05) return {r:1,g:1,b:1,intensity:0.0};
+
+  // Weighted blend
+  const r = (pred*1.0 + prey*0.0 + plant*0.05) / total;
+  const g = (pred*0.1 + prey*0.8 + plant*1.0)  / total;
+  const b = (pred*0.05+ prey*1.0 + plant*0.25) / total;
+
+  // Intensity = how specialised (how far from equal thirds)
+  const maxScore = Math.max(plant, pred, prey);
+  const intensity = Math.min(1.2, maxScore * 1.4);
+  return {r, g, b, intensity};
+}
+
+// ── Boid class ──
+class Void {
+  constructor(dna=null, parentGen=0, startEnergy=null, startPos=null, parentEid=null){
+    this.eid  = nextEid++;
+    this.dna  = dna||makeSeedDNA();
+    this.gen  = parentGen;
+    this.age  = 0;
+    this.maxEnergy = 100*this.dna.bodySize;
+    // Seed boids (no explicit startEnergy): scatter across 10–90% so they
+    // don't all hit the reproduction threshold simultaneously.
+    // Child boids receive an explicit startEnergy from their parent.
+    this.energy = startEnergy !== null
+      ? startEnergy
+      : this.maxEnergy * (0.10 + Math.random() * 0.80);
+    this.alive = true;
+    // Scatter initial cooldown widely for seed boids to break wave synchrony.
+    // Children start with a short cooldown as before.
+    this.reproCooldown = startEnergy !== null
+      ? 3 + Math.random() * 2
+      : Math.random() * Math.max(8, (P.evoMode||P.ecoMode ? P.lifespan * 0.25 : 8));
+    this.photosynthesisStall = 0; // seconds remaining before passive gain resumes after movement
+
+    if(startPos){
+      // Spawn near parent — small random offset so they don't perfectly overlap
+      const offset = new THREE.Vector3((Math.random()-0.5),(Math.random()-0.5),(Math.random()-0.5));
+      if(offset.length()>0.0001) offset.normalize();
+      this.pos = startPos.clone().addScaledVector(offset, P.size*(this.dna.bodySize||1)*2);
+    } else {
+      this.pos = new THREE.Vector3(
+        (Math.random()-0.5)*P.cube*0.8,
+        (Math.random()-0.5)*P.cube*0.8,
+        (Math.random()-0.5)*P.cube*0.8
+      );
+    }
+    const sp=this.dna.maxSpeed*0.5;
+    this.vel = new THREE.Vector3((Math.random()-0.5)*sp,(Math.random()-0.5)*sp,(Math.random()-0.5)*sp);
+    this.trail=[];
+    this.prevVelDir=new THREE.Vector3(0,1,0); // tracks direction last frame for angular rate
+    this.group=null; this.mat=null; this.glowMat=null; this.glowMesh=null;
+    // Perception bubble meshes
+    this.bubSphere=null; this.bubCone=null;
+    this._buildMesh();
+    if(this.gen>maxGen) maxGen=this.gen;
+    if(P.evoMode||P.ecoMode) lineageRegister(this, parentEid);
+  }
+
+  _buildMesh(){
+    if(this.group){this.group.traverse(o=>{if(o.geometry)o.geometry.dispose();}); if(this.mat)this.mat.dispose(); if(this.glowMat)this.glowMat.dispose(); scene.remove(this.group);}
+    if(this.bubSphere){bubbleGroup.remove(this.bubSphere); this.bubSphere.material.dispose();}
+    if(this.bubCone)  {bubbleGroup.remove(this.bubCone);   this.bubCone.material.dispose();}
+
+    const col=(P.evoMode||P.ecoMode)?hueToHex(this.dna.hue):THEMES[activeTheme].hex;
+    this.mat=new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:P.emissive,roughness:0.25,metalness:0.5});
+    const coneH=P.aspect*0.55, coneR=0.32;
+
+    // In eco mode, shape reflects niche: high huntDrive = pointier, high passiveGain = flatter.
+    // nicheAspect > 1 stretches height and narrows base; < 1 squashes height and widens base.
+    let nicheAspect = 1.0;
+    if(P.ecoMode){
+      const hunt = Math.min(1, (this.dna.huntDrive||0) / 1.5);
+      const plant = Math.min(1, (this.dna.passiveGain||0) / 2.5);
+      // Range: 0.4 (pure plant) → 1.0 (neutral) → 2.2 (pure predator)
+      nicheAspect = 1.0 + hunt * 1.2 - plant * 0.6;
+    }
+    const bH = coneH * nicheAspect;           // taller for predators, shorter for plants
+    const bR = coneR / Math.sqrt(nicheAspect); // narrower for predators, wider for plants
+    const cGeo=new THREE.ConeGeometry(bR, bH, 9); cGeo.translate(0, bH/2, 0);
+    this.group=new THREE.Group();
+    this.group.add(new THREE.Mesh(cGeo,this.mat));
+
+    // Niche glow: slightly enlarged back-face cone, eco mode only
+    // Color = blend of plant-green / predator-red / prey-blue from DNA traits
+    this.glowMat = new THREE.MeshStandardMaterial({
+      color:0x44ff88, emissive:0x44ff88, emissiveIntensity:0,
+      roughness:1, metalness:0,
+      side:THREE.BackSide, transparent:true, opacity:0.55,
+    });
+    const gGeo=new THREE.ConeGeometry(bR*1.35, bH*1.12, 9); gGeo.translate(0, bH*1.12/2, 0);
+    this.glowMesh = new THREE.Mesh(gGeo, this.glowMat);
+    this.glowMesh.visible = P.ecoMode;
+    this.group.add(this.glowMesh);
+
+    scene.add(this.group);
+
+    // Perception bubble meshes (LineSegments using shared wire geometries)
+    const mkBub=(wGeo,color,opacity)=>{
+      const mat=new THREE.LineBasicMaterial({color,transparent:true,opacity});
+      const ls=new THREE.LineSegments(wGeo,mat);
+      bubbleGroup.add(ls);
+      return ls;
+    };
+    this.bubSphere = mkBub(wfSphereGeo, 0x4488ff, 0.25);
+    this.bubCone   = mkBub(wfConeGeo,   0xffaa44, 0.30);
+  }
+
+  applyColor(){
+    if(!this.mat) return;
+    const col=(P.evoMode||P.ecoMode)?hueToHex(this.dna.hue):THEMES[activeTheme].hex;
+    this.mat.color.setHex(col); this.mat.emissive.setHex(col);
+  }
+
+  destroy(){
+    if(this.group){this.group.traverse(o=>{if(o.geometry)o.geometry.dispose();}); scene.remove(this.group);}
+    if(this.mat)this.mat.dispose();
+    if(this.glowMat)this.glowMat.dispose();
+    if(this.bubSphere){bubbleGroup.remove(this.bubSphere); this.bubSphere.material.dispose();}
+    if(this.bubCone)  {bubbleGroup.remove(this.bubCone);   this.bubCone.material.dispose();}
+  }
+
+  update(dt){
+    this.age+=dt;
+    if(this.reproCooldown>0) this.reproCooldown-=dt;
+
+    const isEvo = P.evoMode || P.ecoMode;
+
+    // ── Metabolism & energy (evo + eco) ──
+    if(isEvo){
+      const spd=this.vel.length();
+      const bs=this.dna.bodySize;
+      const fs=this.dna.flockSphere, vr=this.dna.visionRange, va=this.dna.visionAngle;
+      const flockCost  = sphereVol(fs);
+      const visionCost = coneVol(vr,va);
+
+      const pg = this.dna.passiveGain || 0;
+
+      // Movement drain scales with passiveGain: photosynthesis-specialized cells are
+      // structurally expensive to move. pg=0→1×; pg=2→4×; pg=3→7.75×; pg=4→13×
+      const pgMoveMult = P.ecoMode ? (1.0 + pg * pg * 0.75) : 1.0;
+      const moveDrainRate   = P.moveDrain * spd * spd * pgMoveMult;
+      const percDrainRate   = P.flockDrain * flockCost + P.visionDrain * visionCost;
+
+      // Angular (turn) rate: angle swept per second from direction change.
+      let turnDrainRate = 0;
+      if(spd > 0.0001 && dt > 0){
+        const curDir = tmpV.copy(this.vel).divideScalar(spd);
+        const cosA = Math.max(-1, Math.min(1, curDir.dot(this.prevVelDir)));
+        const angPerSec = Math.acos(cosA) / dt;
+        turnDrainRate = P.turnDrain * angPerSec * spd;
+        this.prevVelDir.copy(curDir);
+      }
+
+      let flightDrainRate = 0;
+      if(P.ecoMode){
+        const h = P.cube/2;
+        const localGround = getGroundY(this.pos.x, this.pos.z);
+        const normAlt = Math.max(0, (this.pos.y - localGround) / P.cube);
+        flightDrainRate = P.flightCost * bs * (normAlt + normAlt * spd * 0.4);
+      }
+
+      // Water: extra drain when submerged + velocity resistance (thick medium)
+      let waterDrainRate = 0;
+      if(isInWater(this.pos)){
+        // Energy cost: base metabolic multiplier scaled by drag setting and body size
+        // waterDrag=4 → ~4× extra base drain; movement in water is also penalised
+        waterDrainRate = P.baseDrain * Math.pow(bs, P.sizeDrainExp) * (P.waterDrag - 1.0)
+                       + P.moveDrain * spd * spd * P.waterDrag * 2.0;
+        // Velocity resistance: slow boids in water like thick fluid
+        this.vel.multiplyScalar(Math.max(0, 1 - P.waterDrag * 0.018 * dt * 60));
+      }
+
+      const activeDrainRate = moveDrainRate + percDrainRate + flightDrainRate + turnDrainRate + waterDrainRate;
+      const locomotionDrainRate = moveDrainRate + flightDrainRate + turnDrainRate;
+
+      const baseDrainRate = P.baseDrain * Math.pow(bs, P.sizeDrainExp);
+      const drain = (baseDrainRate + activeDrainRate) * dt;
+
+      // ── Photosynthesis recovery timer ──
+      // Any movement above a small threshold resets a stall timer.
+      // Passive gain is ZERO until the countdown expires — a boid cannot
+      // simultaneously sprint and photosynthesize.
+      // Repeated dodges keep resetting the timer, starving the passive boid.
+      // Stall duration scales with passiveGain: more specialized = longer restart.
+      if(P.ecoMode && pg > 0.3){
+        const moveThreshold = 0.08;
+        if(spd > moveThreshold){
+          // stallDur = base × (1 + pg×0.5): pg=1→3s, pg=2→4s, pg=3→5s at default stall=2s
+          this.photosynthesisStall = P.passivityCurve * (1.0 + pg * 0.5);
+        } else if(this.photosynthesisStall > 0){
+          this.photosynthesisStall = Math.max(0, this.photosynthesisStall - dt);
+        }
+      } else {
+        this.photosynthesisStall = 0;
+      }
+
+      const passiveIn = (P.ecoMode && this.photosynthesisStall <= 0)
+        ? P.passiveGainBase * pg * dt
+        : 0;
+
+      if(P.ecoMode){
+        // Gravity (eco uses its own gravity knob)
+        this.vel.y -= P.ecoGrav * dt * 15; // slider 0-1 maps to 0-15 units/s²
+      }
+
+      this.energy -= drain;
+      this.energy += passiveIn;
+      this.energy = Math.min(this.maxEnergy, this.energy);
+
+      // Food eating — forward vision cone (omnidirectional fallback when nearly stationary)
+      if(foodActive){
+        const fvr=this.dna.visionRange, fva=this.dna.visionAngle;
+        const cosVA=Math.cos(fva);
+        const vl=this.vel.length();
+        const moving = vl > 0.05;
+        const fwdX=moving?this.vel.x/vl:0, fwdY=moving?this.vel.y/vl:0, fwdZ=moving?this.vel.z/vl:0;
+        const vr2=fvr*fvr;
+        const fn=foodActive.length/3;
+        for(let fi=0;fi<fn;fi++){
+          if(foodCooldown && foodCooldown[fi]!==0) continue; // skip depleted slots (>0 = cooling down, -1 = instant-respawn sentinel)
+          const dx=foodActive[fi*3]-this.pos.x, dy=foodActive[fi*3+1]-this.pos.y, dz=foodActive[fi*3+2]-this.pos.z;
+          const d2=dx*dx+dy*dy+dz*dz;
+          if(d2>vr2||d2<0.0001) continue;
+          const dist=Math.sqrt(d2);
+          // Stationary boids use full sphere; moving boids use directional cone
+          const inCone = !moving || (dx/dist)*fwdX+(dy/dist)*fwdY+(dz/dist)*fwdZ > cosVA;
+          if(inCone && !terrainBlocksLOS(this.pos.x,this.pos.y,this.pos.z, foodActive[fi*3],foodActive[fi*3+1],foodActive[fi*3+2])){
+            if(moving){ this.vel.x+=dx/dist*0.4; this.vel.y+=dy/dist*0.4; this.vel.z+=dz/dist*0.4; }
+            const eatR=(P.size*this.dna.bodySize)*1.5;
+            if(d2<eatR*eatR){
+              this.energy=Math.min(this.maxEnergy, this.energy+foodEnergy[fi]);
+              depleteFood(fi);
+              if(foodGeo){
+                foodGeo.attributes.position.needsUpdate=true;
+                foodGeo.attributes.aSize.needsUpdate=true;
+              }
+            }
+          }
+        }
+      }
+
+      // Death
+      if(this.energy<=0||(P.ageLimit&&this.age>this.dna.lifespan)){
+        if(P.evoMode||P.ecoMode){
+          let cause = 'starvation';
+          if(P.ageLimit && this.age>this.dna.lifespan) cause='age';
+          else if(this._predatedAt && (simTime-this._predatedAt)<2.0) cause='predation';
+          lineageKill(this, cause);
+        }
+        this.alive=false; return;
+      }
+
+      // Reproduce
+      const thresh=(P.reproThresh/100)*this.maxEnergy;
+      if(this.energy>=thresh&&this.reproCooldown<=0&&voids.length<P.popCap){
+        const costFrac=P.reproCost/100;
+        const childE=this.energy*costFrac*0.7;
+        this.energy-=this.energy*costFrac;
+        this.reproCooldown=4+Math.random()*3;
+        toSpawn.push({dna:childDNA(this.dna),gen:this.gen+1,energy:childE,pos:this.pos.clone(),parentEid:this.eid});
+        totalBirths++;
+      }
+
+      // Energy color
+      if(P.energyColor){
+        const t=Math.max(0,Math.min(1,this.energy/this.maxEnergy));
+        const r=t<0.5?1.0:1.0-(t-0.5)*0.5;
+        const g=t<0.5?t*2*0.55:0.55+(t-0.5)*0.9;
+        const b=t<0.5?t*2*0.2:0.2+(t-0.5)*1.3;
+        this.mat.color.setRGB(r,g,b); this.mat.emissive.setRGB(r*0.45,g*0.45,b*0.45);
+      }
+    }
+
+    // ── Eco altitude preference steering ──
+    if(P.ecoMode){
+      const h=P.cube/2;
+      const localGround = getGroundY(this.pos.x, this.pos.z);
+      const isPlantLike2 = this.dna.passiveGain > 0.5 && this.dna.huntDrive < 0.5;
+      // Plant-like boids target the terrain surface; others use preferredAlt above terrain
+      const targetY = isPlantLike2
+        ? localGround
+        : localGround + Math.max(0, this.dna.preferredAlt) * h * 0.85;
+      const yErr = targetY - this.pos.y;
+      this.vel.y += yErr * 0.015 * dt * 60;
+    }
+
+    // ── Physics ──
+    if(!P.ecoMode){
+      // Standard gravity (non-eco uses P.grav)
+      this.vel.y -= P.grav * dt;
+    }
+    this.vel.x+=(Math.random()-0.5)*P.chaos*dt;
+    this.vel.y+=(Math.random()-0.5)*P.chaos*dt;
+    this.vel.z+=(Math.random()-0.5)*P.chaos*dt;
+    if(P.vortex!==0){
+      const rx=this.pos.x,rz=this.pos.z,r=Math.sqrt(rx*rx+rz*rz);
+      if(r>0.01){this.vel.x+=(-rz/r)*P.vortex*dt; this.vel.z+=(rx/r)*P.vortex*dt;}
+    }
+    this.vel.multiplyScalar(P.damp);
+
+    const isEvo2 = P.evoMode || P.ecoMode;
+    // In eco mode: large body = slow. maxSpeed scales inversely with bodySize^0.5
+    const rawMaxS = isEvo2 ? this.dna.maxSpeed : Math.max(P.speed*2.5,0.1);
+    const sizeSpeedPenalty = (P.ecoMode && this.dna.bodySize > 1) ? Math.pow(this.dna.bodySize, 0.55) : 1.0;
+    // passiveGain penalises max speed — investment in photosynthesis trades off against locomotion.
+    // A fully passive boid (passiveGain=4) is capped to ~1/3 of its genetic max speed.
+    // Passivity penalty is quadratic — small cost at low passiveGain, severe at high.
+    // Biological logic: cellular investment in photosynthesis machinery trades off hard
+    // against locomotor capacity. passiveGain=2 → ~3.4× slower; =4 → ~8× slower.
+    const pg = P.ecoMode ? (this.dna.passiveGain||0) : 0;
+    const passivitySpeedPenalty = P.ecoMode ? (1.0 + pg * 0.5 + pg * pg * 0.22) : 1.0;
+    const maxS = rawMaxS / (sizeSpeedPenalty * passivitySpeedPenalty);
+    // Lower threshold: even moderately passive boids can't sustain fast movement
+    const isPlantLike = P.ecoMode && this.dna.passiveGain > 1.0 && this.dna.huntDrive < 0.4;
+    const minS = isPlantLike ? 0 : (isEvo2 ? this.dna.maxSpeed : P.speed) * 0.12;
+    const sp=this.vel.length();
+    if(sp>maxS) this.vel.multiplyScalar(maxS/sp);
+    else if(!isPlantLike && sp<minS){
+      if(sp>0.0001) this.vel.multiplyScalar(minS/sp);
+      else this.vel.set((Math.random()-0.5)*minS,(Math.random()-0.5)*minS,(Math.random()-0.5)*minS);
+    } else if(isPlantLike && sp>0.05){
+      this.vel.multiplyScalar(0.92); // plants slow down quickly
+    }
+
+    this.pos.addScaledVector(this.vel,dt*60);
+
+    // Trail
+    if(P.trail>0){this.trail.push(this.pos.clone()); if(this.trail.length>P.trail)this.trail.shift();}
+    else this.trail.length=0;
+
+    // Bounds
+    const h=P.cube/2;
+    for(const ax of ['x','y','z']){
+      if(P.boundMode==='bounce'){if(this.pos[ax]>h){this.pos[ax]=h;this.vel[ax]*=-0.85;}if(this.pos[ax]<-h){this.pos[ax]=-h;this.vel[ax]*=-0.85;}}
+      else if(P.boundMode==='wrap'){if(this.pos[ax]>h)this.pos[ax]-=P.cube;if(this.pos[ax]<-h)this.pos[ax]+=P.cube;}
+      else{if(Math.abs(this.pos[ax])>h){this.pos[ax]=(Math.random()-0.5)*P.cube*0.3;this.vel[ax]*=-0.3;}}
+    }
+    // In eco mode hard-clamp to terrain (ground bounce)
+    if(P.ecoMode){
+      const groundY=getGroundY(this.pos.x, this.pos.z);
+      if(this.pos.y < groundY){ this.pos.y=groundY; this.vel.y=Math.abs(this.vel.y)*0.3; }
+    }
+
+    // Visuals
+    const bs = isEvo2 ? this.dna.bodySize : 1.0;
+    this.group.scale.setScalar(P.size*bs);
+    this.mat.emissiveIntensity=P.emissive;
+    this.group.position.copy(this.pos);
+    const vl=this.vel.length();
+    if(vl>0.0001){ tmpQ.setFromUnitVectors(UP,tmpV.copy(this.vel).divideScalar(vl)); this.group.quaternion.copy(tmpQ); }
+
+    // Niche glow outline (eco mode only)
+    if(this.glowMesh){
+      if(P.ecoMode && !P.energyColor){
+        const g=nicheGlow(this.dna);
+        this.glowMat.color.setRGB(g.r,g.g,g.b);
+        this.glowMat.emissive.setRGB(g.r*0.6,g.g*0.6,g.b*0.6);
+        this.glowMat.emissiveIntensity=g.intensity;
+        this.glowMesh.visible=true;
+      } else {
+        this.glowMesh.visible=false;
+      }
+    }
+
+    // ── Perception bubbles ──
+    if(P.showPerc){
+      this.bubSphere.position.copy(this.pos);
+      const fsSc=isEvo2?this.dna.flockSphere:P.flockSphere;
+      this.bubSphere.scale.setScalar(fsSc);
+      this.bubSphere.visible=true;
+      const worldScale=P.size*bs;
+      const coneH=P.aspect*0.55;
+      const _na = P.ecoMode ? (1.0 + Math.min(1,(this.dna.huntDrive||0)/1.5)*1.2 - Math.min(1,(this.dna.passiveGain||0)/2.5)*0.6) : 1.0;
+      const tipOffset=coneH*_na*worldScale;
+      const fwd=vl>0.0001?tmpV2.copy(this.vel).divideScalar(vl):UP;
+      this.bubCone.position.copy(this.pos).addScaledVector(fwd,tipOffset);
+      this.bubCone.quaternion.copy(this.group.quaternion);
+      const vrSc=isEvo2?this.dna.visionRange:P.visionRange;
+      const vaSc=isEvo2?this.dna.visionAngle:(P.visionAngle*PI/180);
+      const coneBaseR=vrSc*Math.tan(vaSc);
+      this.bubCone.scale.set(coneBaseR, vrSc, coneBaseR);
+      this.bubCone.visible=true;
+    } else {
+      this.bubSphere.visible=false;
+      this.bubCone.visible=false;
+    }
+  }
+}
+
+// ── Boid flocking rules ──
+// Flock rules use ONLY the flock sphere (omnidirectional boid-boid perception).
+// The vision cone is exclusively for food — handled in Void.update().
+// Separation fires within a closer sub-radius; alignment+cohesion use the full flock sphere.
+const _sep={x:0,y:0,z:0}, _ali={x:0,y:0,z:0}, _coh={x:0,y:0,z:0};
+
+function applyBoidRules(dt){
+  const n=voids.length;
+  if(n<2) return;
+  const isEvo = P.evoMode || P.ecoMode;
+  for(let i=0;i<n;i++){
+    const bi=voids[i];
+    const fs  =isEvo?bi.dna.flockSphere:P.flockSphere;
+    const sepR=fs*0.45;
+    const fs2=fs*fs, sepR2=sepR*sepR;
+
+    _sep.x=0;_sep.y=0;_sep.z=0;
+    _ali.x=0;_ali.y=0;_ali.z=0;
+    _coh.x=0;_coh.y=0;_coh.z=0;
+    let sc=0,ac=0,cc=0;
+
+    for(let j=0;j<n;j++){
+      if(i===j) continue;
+      const bj=voids[j];
+      const dx=bj.pos.x-bi.pos.x, dy=bj.pos.y-bi.pos.y, dz=bj.pos.z-bi.pos.z;
+      const d2=dx*dx+dy*dy+dz*dz;
+      if(d2<0.0001||d2>fs2) continue;
+      if(P.ecoMode && terrainBlocksLOS(bi.pos.x,bi.pos.y,bi.pos.z, bj.pos.x,bj.pos.y,bj.pos.z)) continue;
+
+      _ali.x+=bj.vel.x; _ali.y+=bj.vel.y; _ali.z+=bj.vel.z; ac++;
+      _coh.x+=bj.pos.x; _coh.y+=bj.pos.y; _coh.z+=bj.pos.z; cc++;
+      if(d2<sepR2){
+        const inv=1/Math.sqrt(d2);
+        _sep.x-=dx*inv; _sep.y-=dy*inv; _sep.z-=dz*inv; sc++;
+      }
+
+      // ── Eco: Predation & Flee ──
+      if(P.ecoMode && d2 < sepR2*4){
+        const dist=Math.sqrt(d2);
+        const biSz=bi.dna.bodySize, bjSz=bj.dna.bodySize;
+        const predLOS = !terrainBlocksLOS(bi.pos.x,bi.pos.y,bi.pos.z, bj.pos.x,bj.pos.y,bj.pos.z);
+
+        // Hunt: bi attacks bj if bi is large enough and has huntDrive
+        if(P.predOn && predLOS && bi.dna.huntDrive>0.1 && biSz >= bjSz * P.predRatio){
+          // Steer toward prey
+          const huntStr=bi.dna.huntDrive*0.012*dt*60;
+          bi.vel.x+=dx/dist*huntStr; bi.vel.y+=dy/dist*huntStr; bi.vel.z+=dz/dist*huntStr;
+          // Eat if within combined radii
+          const eatR=(biSz+bjSz)*P.size*0.9;
+          if(d2<eatR*eatR && bi.energy<bi.maxEnergy*0.95){
+            const bite=Math.min(bj.energy*0.4, bi.maxEnergy-bi.energy);
+            bi.energy+=bite;
+            bj.energy-=bite*1.1;
+            bj._predatedAt = simTime; // flag for cause-of-death
+          }
+        }
+
+        // Flee: bj runs from bi if bi is a real threat
+        if(P.predOn && predLOS && bj.dna.fleeDrive>0.1 && biSz >= bjSz * P.predRatio && bi.dna.huntDrive>0.1){
+          const bjPg = bj.dna.passiveGain||0;
+          // Quadratic passivity penalty applied to both max speed AND the flee impulse:
+          // a sessile organism can't explosively dart even briefly — its locomotor
+          // pathways are structurally limited, not just energetically limited.
+          const bjPassPenalty = 1.0 + bjPg * 0.5 + bjPg * bjPg * 0.22;
+          const bjMaxS = (bj.dna.maxSpeed||1) / bjPassPenalty;
+          const fleeStr = bj.dna.fleeDrive * 0.015 * dt * 60 * Math.min(1.0, bjMaxS) / bjPassPenalty;
+          bj.vel.x-=dx/dist*fleeStr; bj.vel.y-=dy/dist*fleeStr; bj.vel.z-=dz/dist*fleeStr;
+        }
+      }
+    }
+
+    const str=dt*60;
+    const sepW=isEvo?bi.dna.separation:P.separation;
+    const rawAliW=isEvo?bi.dna.alignment:P.alignment;
+    // Alignment is only meaningful when moving — scale it by speed so sessile boids
+    // don't waste flocking budget on a meaningless direction average.
+    const biSpd=Math.sqrt(bi.vel.x*bi.vel.x+bi.vel.y*bi.vel.y+bi.vel.z*bi.vel.z);
+    const aliW=rawAliW * Math.min(1, biSpd * 2.0);
+    const cohW=isEvo?bi.dna.cohesion:P.cohesion;
+    const tr  =isEvo?bi.dna.turnRate  :1.0;
+
+    if(sc>0){const s=sepW*str*tr/sc; bi.vel.x+=_sep.x*s;bi.vel.y+=_sep.y*s;bi.vel.z+=_sep.z*s;}
+    if(ac>0){const s=aliW*str*tr*0.1/ac; bi.vel.x+=(_ali.x-bi.vel.x)*s;bi.vel.y+=(_ali.y-bi.vel.y)*s;bi.vel.z+=(_ali.z-bi.vel.z)*s;}
+    if(cc>0){const s=cohW*str*tr*0.003;
+      bi.vel.x+=(_coh.x/cc-bi.pos.x)*s;bi.vel.y+=(_coh.y/cc-bi.pos.y)*s;bi.vel.z+=(_coh.z/cc-bi.pos.z)*s;}
+  }
+}
+
+// ── Trail rendering ──
+const trailObjs=[];
+function drawTrails(){
+  for(const o of trailObjs){o.geometry.dispose();o.material.dispose();trailGroup.remove(o);}
+  trailObjs.length=0;
+  if(!P.showTrails||P.trail<2) return;
+  const col=THEMES[activeTheme].hex;
+  for(const v of voids){
+    if(v.trail.length<2) continue;
+    const geo=new THREE.BufferGeometry().setFromPoints(v.trail);
+    const mat=new THREE.LineBasicMaterial({color:(P.evoMode||P.ecoMode)?hueToHex(v.dna.hue):col,transparent:true,opacity:P.trailfade*0.5});
+    const ln=new THREE.Line(geo,mat);
+    trailGroup.add(ln); trailObjs.push(ln);
+  }
+}
+
+// ── Void management ──
+function buildVoids(n){
+  voids.forEach(v=>v.destroy()); voids=[];
+  for(let i=0;i<n;i++) voids.push(new Void());
+}
+function onParamChange(key){
+  if(key==='cube'){buildBox();buildAxes();if(P.evoMode||P.ecoMode)rebuildFood();if(P.ecoMode){buildGroundPlane();if(P.waterOn&&P.topoMode==='complex')buildWaterPlane();}}
+  if(key==='boxThickness'||key==='boxOpacity') buildBox();
+  if(key==='count'&&!P.evoMode&&!P.ecoMode){const n=Math.round(P.count);while(voids.length<n)voids.push(new Void());while(voids.length>n){voids[voids.length-1].destroy();voids.pop();}}
+  if(key==='aspect'){voids.forEach(v=>{const s={pos:v.pos.clone(),vel:v.vel.clone(),trail:v.trail.slice(),dna:v.dna,gen:v.gen,age:v.age,energy:v.energy,alive:v.alive};v._buildMesh();Object.assign(v,s);});}
+  if((key==='groundFoodFrac'||key==='treeFoodFrac'||key==='skyFoodDrift'||key==='waterFoodFrac')&&P.ecoMode) rebuildFood();
+  if((key==='waterLevel')&&P.ecoMode&&P.waterOn) { buildWaterPlane(); rebuildFood(); }
+}
+function explode(){
+  voids.forEach(v=>{
+    const d=v.pos.clone(); if(d.length()<0.1)d.set(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5); d.normalize();
+    v.vel.addScaledVector(d,3+Math.random()*5);
+  });
+}
+
+// ── Trait chart ──
+let traitHistory=[], chartEvents=[], chartTimer=0;
+const CHART_INT=2, CHART_MAX=200;
+
+const TRAIT_DEFS = [
+  {key:'maxSpeed',       label:'Speed',       color:'#28d4ff'},
+  {key:'flockSphere',    label:'FlockR',      color:'#aa44ff'},
+  {key:'visionRange',    label:'VisionR',     color:'#ffaa44'},
+  {key:'visionAngleDeg', label:'VisionAng°',  color:'#ff6622'},
+  {key:'bodySize',       label:'BodySize',    color:'#aaff44'},
+  {key:'turnRate',       label:'TurnRate',    color:'#44ffcc'},
+  {key:'separation',     label:'Separation',  color:'#ff4466'},
+  {key:'alignment',      label:'Alignment',   color:'#4488ff'},
+  {key:'cohesion',       label:'Cohesion',    color:'#ffdd00'},
+  {key:'lifespan',       label:'Lifespan',    color:'#ff88cc'},
+  {key:'passiveGain',    label:'PassiveGain', color:'#44ff88'},
+  {key:'huntDrive',      label:'HuntDrive',   color:'#ff3333'},
+  {key:'fleeDrive',      label:'FleeDrive',   color:'#ffaa00'},
+  {key:'preferredAlt',   label:'PrefAlt',     color:'#aaffdd'},
+];
+const POP_DEFS = [
+  {key:'popTotal',    label:'Total Pop',    color:'#ffffff'},
+  {key:'popBirths',   label:'Births/samp',  color:'#aaff44'},
+  {key:'popDeaths',   label:'Deaths/samp',  color:'#ff4444'},
+  {key:'avgLifespan', label:'Avg Lifespan', color:'#ffcc66'},
+  {key:'totalEnergy', label:'Total Energy', color:'#ff88ff'},
+];
+const traitVisible = new Set(TRAIT_DEFS.map(t=>t.key));
+const popVisible   = new Set(POP_DEFS.map(t=>t.key));
+let lastSampleBirths=0, lastSampleDeaths=0;
+
+function buildChartLegend(){
+  const el=document.getElementById('chart-legend');
+  el.innerHTML='';
+  for(const t of TRAIT_DEFS){
+    const pill=document.createElement('div');
+    pill.className='tpill on'; pill.dataset.key=t.key;
+    pill.innerHTML=`<div class="tpill-dot" style="background:${t.color}"></div>${t.label}`;
+    pill.style.color=t.color; pill.style.borderColor=t.color+'44';
+    pill.addEventListener('click',()=>{
+      traitVisible.has(t.key)?traitVisible.delete(t.key):traitVisible.add(t.key);
+      pill.classList.toggle('on',traitVisible.has(t.key));
+    });
+    el.appendChild(pill);
+  }
+  const pel=document.getElementById('pop-legend');
+  pel.innerHTML='';
+  for(const t of POP_DEFS){
+    const pill=document.createElement('div');
+    pill.className='tpill on'; pill.dataset.key=t.key;
+    pill.innerHTML=`<div class="tpill-dot" style="background:${t.color}"></div>${t.label}`;
+    pill.style.color=t.color; pill.style.borderColor=t.color+'44';
+    pill.addEventListener('click',()=>{
+      popVisible.has(t.key)?popVisible.delete(t.key):popVisible.add(t.key);
+      pill.classList.toggle('on',popVisible.has(t.key));
+    });
+    pel.appendChild(pill);
+  }
+  document.getElementById('btn-deselect-all').onclick=()=>{
+    const anyOn=traitVisible.size>0||popVisible.size>0;
+    if(anyOn){ traitVisible.clear(); popVisible.clear(); }
+    else { TRAIT_DEFS.forEach(t=>traitVisible.add(t.key)); POP_DEFS.forEach(t=>popVisible.add(t.key)); }
+    document.querySelectorAll('#chart-legend .tpill,#pop-legend .tpill').forEach(p=>{
+      const key=p.dataset.key;
+      const on=traitVisible.has(key)||popVisible.has(key);
+      p.classList.toggle('on',on);
+    });
+  };
+}
+
+function sampleTraits(){
+  if(!voids.length) return;
+  const sums={};
+  for(const t of TRAIT_DEFS) sums[t.key]=0;
+  for(const v of voids){
+    sums.maxSpeed       += v.dna.maxSpeed;
+    sums.flockSphere    += v.dna.flockSphere;
+    sums.visionRange    += v.dna.visionRange;
+    sums.visionAngleDeg += v.dna.visionAngle*(180/PI);
+    sums.bodySize       += v.dna.bodySize;
+    sums.turnRate       += v.dna.turnRate;
+    sums.separation     += v.dna.separation;
+    sums.alignment      += v.dna.alignment;
+    sums.cohesion       += v.dna.cohesion;
+    sums.lifespan       += v.dna.lifespan;
+    sums.passiveGain    += (v.dna.passiveGain||0);
+    sums.huntDrive      += (v.dna.huntDrive||0);
+    sums.fleeDrive      += (v.dna.fleeDrive||0);
+    sums.preferredAlt   += (v.dna.preferredAlt||0);
+  }
+  const n=voids.length, snap={};
+  for(const t of TRAIT_DEFS) snap[t.key]=sums[t.key]/n;
+  const bD=totalBirths-lastSampleBirths, dD=totalDeaths-lastSampleDeaths;
+  lastSampleBirths=totalBirths; lastSampleDeaths=totalDeaths;
+  let totE=0; voids.forEach(v=>totE+=v.energy);
+  snap.popTotal=n; snap.popBirths=bD; snap.popDeaths=dD; snap.avgLifespan=sums.lifespan/n; snap.totalEnergy=totE;
+  traitHistory.push(snap);
+  if(traitHistory.length>CHART_MAX) traitHistory.shift();
+}
+
+function recordChartEvent(label){
+  if(!P.showChart) return;
+  chartEvents.push({idx:traitHistory.length-1,label});
+  const minIdx=traitHistory.length-CHART_MAX;
+  while(chartEvents.length&&chartEvents[0].idx<minIdx) chartEvents.shift();
+}
+
+function drawChart(){
+  if(!P.showChart||traitHistory.length<2) return;
+  const cv=document.getElementById('trait-canvas');
+  const ctx=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  const PAD_L=32, PAD_R=36, PAD_T=8, PAD_B=4;
+  const CW=W-PAD_L-PAD_R, CH=H-PAD_T-PAD_B;
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(80,200,255,0.06)'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=PAD_T+CH*i/4;
+    ctx.beginPath(); ctx.moveTo(PAD_L,y); ctx.lineTo(PAD_L+CW,y); ctx.stroke();
+    const x=PAD_L+CW*i/4;
+    ctx.beginPath(); ctx.moveTo(x,PAD_T); ctx.lineTo(x,PAD_T+CH); ctx.stroke();
+  }
+  // Left axis (trait %)
+  ctx.fillStyle='rgba(160,220,240,0.3)'; ctx.font='7px Share Tech Mono,monospace'; ctx.textAlign='right';
+  for(let i=0;i<=4;i++) ctx.fillText((100*(1-i/4)).toFixed(0)+'%',PAD_L-3,PAD_T+CH*i/4+3);
+  const histLen=traitHistory.length;
+  // Trait norms
+  const norms={};
+  for(const t of TRAIT_DEFS){ let mx=0; for(const s of traitHistory) if(s[t.key]>mx) mx=s[t.key]; norms[t.key]=mx||1; }
+  // Pop norms
+  const popNorms={};
+  for(const t of POP_DEFS){ let mx=0; for(const s of traitHistory) if((s[t.key]||0)>mx) mx=s[t.key]; popNorms[t.key]=mx||1; }
+  // Right axis (pop count)
+  ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.textAlign='left';
+  for(let i=0;i<=4;i++) ctx.fillText(Math.round((popNorms.popTotal||1)*(1-i/4)),PAD_L+CW+3,PAD_T+CH*i/4+3);
+  // Trait lines
+  for(const t of TRAIT_DEFS){
+    if(!traitVisible.has(t.key)) continue;
+    ctx.strokeStyle=t.color; ctx.lineWidth=1.5; ctx.globalAlpha=0.85; ctx.beginPath();
+    for(let i=0;i<histLen;i++){
+      const x=PAD_L+CW*(i/(CHART_MAX-1));
+      const y=PAD_T+CH*(1-(traitHistory[i][t.key]/norms[t.key]))*0.92+CH*0.04;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  // Population lines
+  for(const t of POP_DEFS){
+    if(!popVisible.has(t.key)) continue;
+    const norm=popNorms[t.key]||1;
+    ctx.strokeStyle=t.color; ctx.lineWidth=t.key==='popTotal'?2:1.2;
+    ctx.globalAlpha=t.key==='popTotal'?0.7:0.5;
+    ctx.setLineDash(t.key==='popTotal'?[]:[3,3]);
+    ctx.beginPath();
+    for(let i=0;i<histLen;i++){
+      const x=PAD_L+CW*(i/(CHART_MAX-1));
+      const y=PAD_T+CH*(1-((traitHistory[i][t.key]||0)/norm))*0.92+CH*0.04;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.globalAlpha=1;
+  // Event lines on top
+  for(const ev of chartEvents){
+    const relIdx=ev.idx-(histLen-CHART_MAX);
+    if(relIdx<0) continue;
+    const x=PAD_L+CW*(relIdx/(CHART_MAX-1));
+    ctx.strokeStyle='rgba(255,255,100,0.35)'; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(x,PAD_T); ctx.lineTo(x,PAD_T+CH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,255,100,0.55)'; ctx.font='6px Share Tech Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText('\u25be',x,PAD_T+7);
+  }
+  document.getElementById('chart-gen-label').textContent=`GEN ${maxGen} \u00b7 ${histLen} SAMPLES`;
+}
+
+// ── Box & Axes ──
+function buildBox(){
+  if(boxHelper){ boxHelper.traverse(o=>{ if(o.geometry)o.geometry.dispose(); }); if(boxHelper.material)boxHelper.material.dispose(); scene.remove(boxHelper); }
+  const h=P.cube/2;
+  const col=parseInt(P.boxColor.replace('#','0x'));
+  const mat=new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:P.boxOpacity});
+  const r=P.boxThickness;
+  // 12 edges of a cube
+  const edges=[
+    [[-h,-h,-h],[h,-h,-h]],[[ h,-h,-h],[h,-h, h]],[[h,-h, h],[-h,-h, h]],[[-h,-h, h],[-h,-h,-h]],
+    [[-h, h,-h],[h, h,-h]],[[ h, h,-h],[h, h, h]],[[h, h, h],[-h, h, h]],[[-h, h, h],[-h, h,-h]],
+    [[-h,-h,-h],[-h, h,-h]],[[h,-h,-h],[h, h,-h]],[[h,-h, h],[h, h, h]],[[-h,-h, h],[-h, h, h]],
+  ];
+  const UP3=new THREE.Vector3(0,1,0), tmpQ2=new THREE.Quaternion(), tmpV3=new THREE.Vector3();
+  boxHelper=new THREE.Group();
+  for(const [a,b] of edges){
+    const va=new THREE.Vector3(...a), vb=new THREE.Vector3(...b);
+    const len=va.distanceTo(vb);
+    const geo=new THREE.CylinderGeometry(r,r,len,6,1);
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.position.copy(va).add(vb).multiplyScalar(0.5);
+    const dir=tmpV3.copy(vb).sub(va).normalize();
+    if(Math.abs(dir.y)<0.999) tmpQ2.setFromUnitVectors(UP3,dir);
+    else tmpQ2.set(dir.y<0?1:0,0,0,dir.y<0?0:1);
+    mesh.quaternion.copy(tmpQ2);
+    boxHelper.add(mesh);
+  }
+  boxHelper.visible=P.showBox; scene.add(boxHelper);
+}
+function buildAxes(){
+  if(axesGroup) scene.remove(axesGroup);
+  axesGroup=new THREE.Group(); const h=P.cube/2;
+  const al=(a,b,c)=>{const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a),new THREE.Vector3(...b)]);axesGroup.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:c,opacity:0.2,transparent:true})));};
+  al([-h,0,0],[h,0,0],0xff3a6e); al([0,-h,0],[0,h,0],0x28d4ff); al([0,0,-h],[0,0,h],0x7b2fff);
+  axesGroup.visible=P.showAxes; scene.add(axesGroup);
+}
+
+// ── Evolutionary Tree ──
+let _treeChampion = [];   // [eid,...] path of most-descendants lineage
+let _treeView     = {x:0, y:0, scale:1}; // pan/zoom state
+let P_showTree    = false;
+
+// Niche colour for a DNA snapshot (same logic as glow)
+function nicheColorStr(dna){
+  const hunt  = Math.min(1,(dna.huntDrive||0)/1.5);
+  const plant = Math.min(1,(dna.passiveGain||0)/2.5);
+  const flee  = Math.min(1,(dna.fleeDrive||0)/1.5);
+  const tot   = hunt+plant+flee||1;
+  const r = Math.round(hunt/tot*255);
+  const g = Math.round(plant/tot*255);
+  const b = Math.round(flee/tot*255);
+  // bias toward predefined vivid colours
+  if(hunt>=plant&&hunt>=flee) return '#ff4444';
+  if(plant>=hunt&&plant>=flee) return '#44ff88';
+  return '#44ccff'; // flee dominant
+}
+
+// Subtree leaf count (descendants). Cached on node.
+function _countDesc(eid){
+  const nd = lineageStore.get(eid);
+  if(!nd) return 0;
+  if(nd._descCache != null) return nd._descCache;
+  let c = nd.childEids.length;
+  for(const ceid of nd.childEids) c += _countDesc(ceid);
+  nd._descCache = c;
+  return c;
+}
+
+function _invalidateDescCache(){
+  lineageStore.forEach(nd=>{ nd._descCache=null; });
+}
+
+// Reingold-Tilford-inspired: measure subtree width, then assign x.
+// Collapsed dead nodes (no living descendants, no children) get width=1.
+const TW = 38; // horizontal spacing per slot
+const TH = 64; // vertical spacing per generation
+
+function _hasLivingDesc(eid){
+  const nd = lineageStore.get(eid); if(!nd) return false;
+  if(nd.living) return true;
+  for(const c of nd.childEids) if(_hasLivingDesc(c)) return true;
+  return false;
+}
+
+function _subtreeWidth(eid){
+  const nd = lineageStore.get(eid); if(!nd) return 1;
+  // Fully dead leaf → collapsed to width 1
+  if(!nd.living && nd.childEids.length===0) return 1;
+  if(nd.childEids.length===0) return 1;
+  // Collapsed dead sub: dead with no living descendants → width 1
+  if(!nd.living && !_hasLivingDesc(eid)) return 1;
+  let w = 0;
+  for(const c of nd.childEids) w += _subtreeWidth(c);
+  return Math.max(1, w);
+}
+
+function _assignX(eid, leftX){
+  const nd = lineageStore.get(eid); if(!nd) return;
+  const w = _subtreeWidth(eid);
+  nd._tx = leftX + (w-1)*0.5; // centre over subtree
+  nd._ty = nd.gen;
+  nd._collapsed = (!nd.living && !_hasLivingDesc(eid) && nd.childEids.length>0);
+  if(nd._collapsed || nd.childEids.length===0) return;
+  let cx = leftX;
+  for(const c of nd.childEids){
+    _assignX(c, cx);
+    cx += _subtreeWidth(c);
+  }
+}
+
+function buildTreeLayout(){
+  _invalidateDescCache();
+  // Find roots (no parent registered)
+  const roots = [];
+  lineageStore.forEach((nd,eid)=>{ if(nd.parentEid==null||!lineageStore.has(nd.parentEid)) roots.push(eid); });
+  // Assign x positions
+  let cx=0;
+  for(const r of roots){ _assignX(r,cx); cx+=_subtreeWidth(r); }
+  // Compute champion path (most-descendants chain from any root)
+  _treeChampion=[];
+  let bestRoot=null, bestDesc=-1;
+  for(const r of roots){ const d=_countDesc(r); if(d>bestDesc){bestDesc=d;bestRoot=r;} }
+  if(bestRoot!=null){
+    let cur=bestRoot;
+    while(cur!=null){
+      _treeChampion.push(cur);
+      const nd=lineageStore.get(cur); if(!nd||nd.childEids.length===0) break;
+      let bestC=null, bestD=-1;
+      for(const c of nd.childEids){ const d=_countDesc(c); if(d>bestD){bestD=d;bestC=c;} }
+      cur=bestC;
+    }
+  }
+}
+
+// Draw a 2D boid silhouette at (cx,cy): pointy→flat based on huntDrive/passiveGain
+function drawBoidSilhouette(ctx, cx, cy, dna, sz, col, alpha, living){
+  const hunt  = Math.min(1,(dna.huntDrive||0)/1.5);
+  const plant = Math.min(1,(dna.passiveGain||0)/2.5);
+  const aspect= 1.0 + hunt*1.4 - plant*0.55;
+  const hw = sz / Math.sqrt(aspect);
+  const hh = sz * aspect;
+  ctx.save();
+  ctx.globalAlpha = living ? alpha : alpha*0.38;
+  ctx.fillStyle = col;
+  ctx.shadowColor = col;
+  ctx.shadowBlur  = living ? 8 : 0;
+  // Diamond-ish teardrop: pointy top, rounded base
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - hh);                   // apex (front / top)
+  ctx.bezierCurveTo(cx+hw*0.5, cy-hh*0.1,   // right shoulder
+                    cx+hw,      cy+hh*0.55,
+                    cx,         cy+hh*0.7);   // base centre
+  ctx.bezierCurveTo(cx-hw,      cy+hh*0.55,
+                    cx-hw*0.5, cy-hh*0.1,
+                    cx,         cy - hh);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawTreeCanvas(){
+  const cv = document.getElementById('tree-canvas');
+  if(!cv||!P_showTree) return;
+  // Resize to container
+  const pr = window.devicePixelRatio||1;
+  const W  = cv.clientWidth, H = cv.clientHeight;
+  if(cv.width!==W*pr||cv.height!==H*pr){ cv.width=W*pr; cv.height=H*pr; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(pr,0,0,pr,0,0);
+  ctx.clearRect(0,0,W,H);
+  if(lineageStore.size===0){ ctx.fillStyle='rgba(80,200,255,0.2)'; ctx.font='11px monospace'; ctx.fillText('Run a simulation first',W/2-70,H/2); return; }
+
+  if(_treeLayoutDirty){ buildTreeLayout(); _treeLayoutDirty=false; }
+
+  const champSet = new Set(_treeChampion);
+
+  // Build the set of all edges (parentEid→childEid) that lie on the path
+  // from any currently-living boid back to its root ancestor.
+  // Rendered as faint gold; the bright champion line is drawn on top.
+  const livingAncestorEdges = new Set(); // stored as "parentEid,childEid" strings
+  lineageStore.forEach((nd) => {
+    if(!nd.living) return;
+    let cur = nd.eid;
+    while(cur != null){
+      const node = lineageStore.get(cur);
+      if(!node || node.parentEid == null) break;
+      const edgeKey = node.parentEid + ',' + cur;
+      if(livingAncestorEdges.has(edgeKey)) break; // already traced this path up
+      livingAncestorEdges.add(edgeKey);
+      cur = node.parentEid;
+    }
+  });
+  const vx=_treeView.x, vy=_treeView.y, vs=_treeView.scale;
+  const toScreen=(tx,ty)=>({
+    x: W/2 + (tx*TW - vx)*vs,
+    y: 40  + (ty*TH  - vy)*vs,
+  });
+
+  // Draw edges first
+  lineageStore.forEach((nd,eid)=>{
+    if(nd._collapsed||nd.childEids.length===0) return;
+    const p=toScreen(nd._tx, nd._ty);
+    for(const ceid of nd.childEids){
+      const cn=lineageStore.get(ceid); if(!cn) continue;
+      const c=toScreen(cn._tx, cn._ty);
+      const isChamp = champSet.has(eid)&&champSet.has(ceid);
+      const isLivingAncestor = !isChamp && livingAncestorEdges.has(eid+','+ceid);
+      ctx.save();
+      ctx.strokeStyle = isChamp ? '#ffd700' : isLivingAncestor ? 'rgba(255,215,0,0.28)' : 'rgba(80,200,255,0.18)';
+      ctx.lineWidth   = isChamp ? 2.5*vs : isLivingAncestor ? 1.5*vs : 1*vs;
+      ctx.shadowColor = isChamp ? '#ffd700' : 'transparent';
+      ctx.shadowBlur  = isChamp ? 6 : 0;
+      // Curved connector
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.bezierCurveTo(p.x, (p.y+c.y)/2, c.x, (p.y+c.y)/2, c.x, c.y);
+      ctx.stroke();
+      ctx.restore();
+
+      // Trait-delta glyph: if significant mutation on key eco traits
+      if(P.ecoMode && nd.dna && cn.dna){
+        const keys=['huntDrive','passiveGain','fleeDrive','maxSpeed','bodySize'];
+        let maxDelta=0, maxKey='';
+        for(const k of keys){
+          const base=nd.dna[k]||0, child=cn.dna[k]||0;
+          const denom=Math.max(0.01,Math.abs(base));
+          const d=Math.abs(child-base)/denom;
+          if(d>maxDelta){maxDelta=d;maxKey=k;}
+        }
+        if(maxDelta>0.35){
+          const mx=(p.x+c.x)/2, my=(p.y+c.y)/2;
+          const glyphs={'huntDrive':'⚔','passiveGain':'☀','fleeDrive':'💨','maxSpeed':'⚡','bodySize':'◉'};
+          const g=glyphs[maxKey]||'Δ';
+          ctx.save();
+          ctx.font=`${Math.max(8,10*vs)}px serif`;
+          ctx.fillStyle='rgba(255,220,100,0.85)';
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(g, mx, my);
+          ctx.restore();
+        }
+      }
+    }
+    // Draw collapsed stub as a small dim cluster
+    if(nd._collapsed){
+      const p2=toScreen(nd._tx, nd._ty+0.5);
+      ctx.save();
+      ctx.fillStyle='rgba(80,200,255,0.12)';
+      ctx.strokeStyle='rgba(80,200,255,0.2)';
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(p2.x,p2.y,4*vs,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  // Draw nodes
+  const nodeSz = Math.max(4, Math.min(12, 9*vs));
+  lineageStore.forEach((nd,eid)=>{
+    if(nd._collapsed) return;
+    const p = toScreen(nd._tx, nd._ty);
+    // Clip to canvas bounds for performance
+    if(p.x<-20||p.x>W+20||p.y<-20||p.y>H+20) return;
+    const col = nicheColorStr(nd.dna);
+    drawBoidSilhouette(ctx, p.x, p.y, nd.dna, nodeSz, col, 1.0, nd.living);
+    // Death cause badge
+    if(!nd.living&&nd.causeOfDeath){
+      const badges={age:'⏱',starvation:'💀',predation:'🦷'};
+      const b=badges[nd.causeOfDeath]||'';
+      if(b){
+        ctx.font=`${Math.max(6,7*vs)}px serif`;
+        ctx.fillStyle='rgba(255,255,255,0.5)';
+        ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.fillText(b, p.x, p.y+nodeSz+1);
+      }
+    }
+    // Lifespan bar: thin line below node
+    if(nd.dna&&nd.dna.lifespan){
+      const livedFrac = nd.diedAt!=null
+        ? Math.min(1,(nd.diedAt-nd.bornAt)/nd.dna.lifespan)
+        : Math.min(1,(simTime-nd.bornAt)/nd.dna.lifespan);
+      const bw = nodeSz*2.2, bh = Math.max(1, 2*vs);
+      const bx = p.x-bw/2, by = p.y+nodeSz+8*vs;
+      ctx.fillStyle='rgba(255,255,255,0.1)';
+      ctx.fillRect(bx,by,bw,bh);
+      ctx.fillStyle=nd.living?'#44ff88':'rgba(255,255,255,0.35)';
+      ctx.fillRect(bx,by,bw*livedFrac,bh);
+    }
+  });
+
+  // Stats label
+  document.getElementById('tree-stats').textContent =
+    `${lineageStore.size} nodes · gen ${maxGen}`;
+}
+
+// ── Tree pan/zoom ──
+function setupTreeInteraction(){
+  const cv = document.getElementById('tree-canvas');
+  let dragging=false, lastX=0, lastY=0, downX=0, downY=0;
+  cv.addEventListener('mousedown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;downX=e.clientX;downY=e.clientY;});
+  cv.addEventListener('mouseup',e=>{
+    dragging=false;
+    const dx=e.clientX-downX,dy=e.clientY-downY;
+    if(Math.sqrt(dx*dx+dy*dy)<5) treeNodeAt(e.clientX,e.clientY,e);
+  });
+  cv.addEventListener('mousemove',e=>{
+    if(!dragging) return;
+    _treeView.x -= (e.clientX-lastX)/_treeView.scale;
+    _treeView.y -= (e.clientY-lastY)/_treeView.scale;
+    lastX=e.clientX; lastY=e.clientY;
+    drawTreeCanvas();
+  });
+  cv.addEventListener('mouseleave',()=>{dragging=false; document.getElementById('tree-tooltip').style.display='none';});
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const factor = e.deltaY>0 ? 0.88 : 1.14;
+    _treeView.scale = Math.max(0.15, Math.min(6, _treeView.scale*factor));
+    drawTreeCanvas();
+  },{passive:false});
+  // Tooltip on hover
+  cv.addEventListener('mousemove',e=>{
+    if(dragging) return;
+    const nd = treeNodeAt(e.clientX,e.clientY,null);
+    const tt = document.getElementById('tree-tooltip');
+    if(nd){
+      const f=n=>(n||0).toFixed(2);
+      const age = nd.diedAt!=null ? (nd.diedAt-nd.bornAt).toFixed(1)+'s' : (simTime-nd.bornAt).toFixed(1)+'s (living)';
+      tt.innerHTML=`
+        <b style="color:#fff">Gen ${nd.gen} · EID ${nd.eid}</b><br>
+        Status: ${nd.living?'<span style="color:#44ff88">living</span>':'<span style="color:#ff6666">dead ('+nd.causeOfDeath+')</span>'}<br>
+        Age: ${age}<br>
+        Children: ${nd.childEids.length} · Desc: ${_countDesc(nd.eid)}<br>
+        Size: ${f(nd.dna.bodySize)} · Speed: ${f(nd.dna.maxSpeed)}<br>
+        Hunt: ${f(nd.dna.huntDrive||0)} · Passive: ${f(nd.dna.passiveGain||0)}<br>
+        Flee: ${f(nd.dna.fleeDrive||0)}`;
+      tt.style.display='block';
+      tt.style.left=(e.clientX+14)+'px';
+      tt.style.top =(e.clientY+14)+'px';
+    } else {
+      tt.style.display='none';
+    }
+  });
+}
+
+function treeNodeAt(clientX, clientY, e){
+  const cv=document.getElementById('tree-canvas');
+  const rect=cv.getBoundingClientRect();
+  const W=cv.clientWidth, H=cv.clientHeight;
+  const mx=clientX-rect.left, my=clientY-rect.top;
+  const vs=_treeView.scale;
+  let best=null, bestD=Infinity;
+  const hitR = Math.max(10, 12*vs);
+  lineageStore.forEach((nd)=>{
+    if(nd._collapsed) return;
+    const sx = W/2 + (nd._tx*TW - _treeView.x)*vs;
+    const sy = 40  + (nd._ty*TH  - _treeView.y)*vs;
+    const d=Math.hypot(mx-sx, my-sy);
+    if(d<hitR&&d<bestD){bestD=d;best=nd;}
+  });
+  return best;
+}
+
+function fitTreeView(){
+  if(lineageStore.size===0) return;
+  const cv=document.getElementById('tree-canvas');
+  const W=cv.clientWidth||800, H=cv.clientHeight||600;
+  let minX=Infinity,maxX=-Infinity,minY=0,maxY=0;
+  lineageStore.forEach(nd=>{
+    if(minX>nd._tx) minX=nd._tx; if(maxX<nd._tx) maxX=nd._tx;
+    if(maxY<nd._ty) maxY=nd._ty;
+  });
+  const tw=(maxX-minX+1)*TW, th=(maxY+1)*TH;
+  const scaleX=(W-60)/tw, scaleY=(H-80)/th;
+  _treeView.scale=Math.max(0.15,Math.min(4,Math.min(scaleX,scaleY)));
+  _treeView.x = (minX+maxX)/2*TW - W/2/_treeView.scale;
+  _treeView.y = minY*TH - 20/_treeView.scale;
+  drawTreeCanvas();
+}
+
+// Wire tree button
+document.getElementById('btn-tree').addEventListener('click',function(){
+  P_showTree=!P_showTree;
+  this.classList.toggle('active',P_showTree);
+  const ov=document.getElementById('tree-overlay');
+  ov.classList.toggle('visible',P_showTree);
+  if(P_showTree){ buildTreeLayout(); fitTreeView(); drawTreeCanvas(); }
+});
+document.getElementById('btn-tree-close').addEventListener('click',()=>{
+  P_showTree=false;
+  document.getElementById('btn-tree').classList.remove('active');
+  document.getElementById('tree-overlay').classList.remove('visible');
+});
+document.getElementById('btn-tree-reset-view').addEventListener('click',()=>{ _treeLayoutDirty=true; buildTreeLayout(); fitTreeView(); });
+
+// ── Event Tally ──
+let P_showTally = false;
+const TALLY_MAX = 10;
+const TALLY_FADE_DELAY = 3500; // ms of sim-time before fade starts
+const TALLY_FADE_DUR   = 1300; // ms of sim-time for fade transition
+const tallyEl = () => document.getElementById('tally-overlay');
+
+// Death counters
+const tallyCounts = { births:0, age:0, starvation:0, predation:0 };
+
+// Each active entry: { el, simTimeAdded, fadingAt, removeAt, removed }
+const tallyEntries = [];
+
+// Called each frame with real dt; advances fade timers only when not paused
+function tallyTick(msElapsed){
+  if(!P_showTally || !tallyEntries.length) return;
+  for(let i = tallyEntries.length - 1; i >= 0; i--){
+    const e = tallyEntries[i];
+    if(e.removed) { tallyEntries.splice(i,1); continue; }
+    e.elapsed += msElapsed;
+    if(e.elapsed >= e.fadingAt && !e.fading){
+      e.fading = true;
+      e.el.style.transition = `opacity ${TALLY_FADE_DUR}ms ease`;
+      e.el.style.opacity = '0';
+    }
+    if(e.elapsed >= e.removeAt){
+      if(e.el.parentNode) e.el.parentNode.removeChild(e.el);
+      e.removed = true;
+      tallyEntries.splice(i,1);
+    }
+  }
+}
+
+function tallyUpdateCounts(){
+  const el = document.getElementById('tally-counts');
+  if(!el) return;
+  el.innerHTML =
+    `<span style="color:#44ff88">⊕ ${tallyCounts.births} born</span>\n` +
+    `<span style="color:#ffd700">☽ ${tallyCounts.age} age</span>   ` +
+    `<span style="color:#c0388a">✦ ${tallyCounts.starvation} starv</span>   ` +
+    `<span style="color:#ff3a3a">⚔ ${tallyCounts.predation} pred</span>`;
+}
+
+function tallyAdd(cssClass, text){
+  if(!P_showTally) return;
+  const el = tallyEl();
+  if(!el) return;
+  const entry = document.createElement('div');
+  entry.className = `tally-entry ${cssClass}`;
+  entry.textContent = text;
+  entry.style.opacity = '1';
+  const countsEl = document.getElementById('tally-counts');
+  el.insertBefore(entry, countsEl ? countsEl.nextSibling : el.firstChild);
+  // trim oldest entries beyond TALLY_MAX
+  const items = [...el.querySelectorAll('.tally-entry')];
+  if(items.length > TALLY_MAX){
+    const oldest = items[items.length - 1];
+    if(oldest.parentNode) oldest.parentNode.removeChild(oldest);
+    const idx = tallyEntries.findIndex(e => e.el === oldest);
+    if(idx !== -1){ tallyEntries[idx].removed = true; tallyEntries.splice(idx,1); }
+  }
+  tallyEntries.push({
+    el: entry, elapsed:0,
+    fadingAt: TALLY_FADE_DELAY,
+    removeAt: TALLY_FADE_DELAY + TALLY_FADE_DUR,
+    fading:false, removed:false,
+  });
+}
+
+function tallyAddBirth(boid){
+  tallyCounts.births++;
+  tallyUpdateCounts();
+  tallyAdd('birth', `⊕ GEN ${boid.gen} born`);
+}
+
+function tallyAddDeath(boid, cause){
+  if(cause === 'age')        tallyCounts.age++;
+  else if(cause === 'predation') tallyCounts.predation++;
+  else                       tallyCounts.starvation++;
+  tallyUpdateCounts();
+  const causeClass = cause === 'age' ? 'death-age' : cause === 'predation' ? 'death-pred' : 'death-starve';
+  const causeLabel = cause === 'age' ? 'old age' : cause === 'predation' ? 'predation' : 'starvation';
+  tallyAdd(causeClass, `⊗ GEN ${boid.gen}  ${causeLabel}`);
+}
+
+function tallyClear(){
+  tallyEntries.forEach(e => { e.removed = true; });
+  tallyEntries.length = 0;
+  const el = tallyEl();
+  if(el) [...el.querySelectorAll('.tally-entry')].forEach(e => e.remove());
+  Object.assign(tallyCounts, {births:0, age:0, starvation:0, predation:0});
+  tallyUpdateCounts();
+}
+
+document.getElementById('btn-tally').addEventListener('click', function(){
+  P_showTally = !P_showTally;
+  this.classList.toggle('active', P_showTally);
+  tallyEl().classList.toggle('visible', P_showTally);
+  if(!P_showTally) tallyClear();
+  else tallyUpdateCounts();
+});
+
+// ── Floating event icons ──
+// Each floater tracks a fixed world position, rises upward in world-Y over its lifetime,
+// and is projected to screen each frame. Duration is in simulation seconds (pauses when paused).
+const floaters = [];
+const FLOATER_DUR = 1.4;
+let _fProj = null; // initialized lazily after THREE loads
+
+function floaterSpawn(worldPos, icon, color){
+  if(!P_showTally) return;
+  const overlay = document.getElementById('floater-overlay');
+  if(!overlay) return;
+  const el = document.createElement('div');
+  el.className = 'floater';
+  el.textContent = icon;
+  el.style.color = color;
+  el.style.opacity = '1';
+  overlay.appendChild(el);
+  floaters.push({ worldPos: worldPos.clone(), el, age:0, duration: FLOATER_DUR });
+}
+
+function floaterTick(dt){
+  if(!floaters.length) return;
+  if(!_fProj) _fProj = new THREE.Vector3();
+  const W = renderer.domElement.clientWidth;
+  const H = renderer.domElement.clientHeight;
+  for(let i = floaters.length-1; i >= 0; i--){
+    const f = floaters[i];
+    f.age += dt;
+    const t = Math.min(1, f.age / f.duration);
+    if(t >= 1){
+      if(f.el.parentNode) f.el.parentNode.removeChild(f.el);
+      floaters.splice(i, 1);
+      continue;
+    }
+    // Rise in world space
+    const riseY = t * P.cube * 0.08;
+    _fProj.set(f.worldPos.x, f.worldPos.y + riseY, f.worldPos.z);
+    _fProj.project(camera);
+    const sx = ( _fProj.x * 0.5 + 0.5) * W;
+    const sy = (-_fProj.y * 0.5 + 0.5) * H;
+    // Behind camera — hide
+    if(_fProj.z > 1){ f.el.style.display='none'; continue; }
+    f.el.style.display = '';
+    f.el.style.left = sx + 'px';
+    f.el.style.top  = sy + 'px';
+    // Fade out over last 60% of life
+    const alpha = t < 0.4 ? 1 : 1 - (t - 0.4) / 0.6;
+    f.el.style.opacity = alpha.toFixed(3);
+    // Scale up slightly as it rises
+    const scale = 0.85 + t * 0.4;
+    f.el.style.transform = `translateX(-50%) scale(${scale.toFixed(3)})`;
+  }
+}
+
+// ── Orbit / Camera ──
+const orbit={
+  dragging:false, panning:false,
+  lx:0, ly:0, _downX:0, _downY:0,
+  theta:0.7, phi:0.9, radius:58,
+  target:{x:0,y:0,z:0},
+};
+
+// Free-look mode state
+const freecam={
+  active:false,
+  pos:{x:38,y:24,z:46},
+  yaw:0, pitch:0,
+  locked:false,  // pointer lock acquired
+};
+
+const _keys={};
+window.addEventListener('keydown', e=>{
+  // Don't steal keys when typing in inputs/textareas
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  _keys[e.code]=true;
+  if(e.code==='KeyF') toggleFreecam();
+  if(e.code==='Escape' && freecam.active) exitFreecam();
+  if(e.code==='Space' && !e.target.tagName) e.preventDefault();
+});
+window.addEventListener('keyup', e=>{ _keys[e.code]=false; });
+
+// Reused vectors for key-drive movement
+let _fwdV=null, _rightV2=null, _upV=null;
+
+function orbitKeyMove(dt){
+  if(freecam.active) return; // handled in freecamTick
+  if(!_fwdV){ _fwdV=new THREE.Vector3(); _rightV2=new THREE.Vector3(); _upV=new THREE.Vector3(); }
+  const anyMove = _keys['KeyW']||_keys['KeyS']||_keys['KeyA']||_keys['KeyD']||
+                  _keys['KeyQ']||_keys['KeyE']||_keys['ArrowUp']||_keys['ArrowDown']||
+                  _keys['ArrowLeft']||_keys['ArrowRight'];
+  if(!anyMove) return;
+
+  const sprint = _keys['ShiftLeft']||_keys['ShiftRight'];
+  const speed  = orbit.radius * (sprint ? 1.8 : 0.55) * dt;
+
+  // Forward = direction from camera to target (flat, no Y tilt)
+  _fwdV.set(
+    Math.sin(orbit.phi)*Math.sin(orbit.theta),
+    0,
+    Math.sin(orbit.phi)*Math.cos(orbit.theta)
+  ).normalize();
+  _rightV2.set(Math.cos(orbit.theta), 0, -Math.sin(orbit.theta)).normalize();
+  _upV.set(0,1,0);
+
+  const t = orbit.target;
+  if(_keys['KeyW']||_keys['ArrowUp'])   { t.x-=_fwdV.x*speed;  t.z-=_fwdV.z*speed; }
+  if(_keys['KeyS']||_keys['ArrowDown']) { t.x+=_fwdV.x*speed;  t.z+=_fwdV.z*speed; }
+  if(_keys['KeyA']||_keys['ArrowLeft']) { t.x-=_rightV2.x*speed; t.z-=_rightV2.z*speed; }
+  if(_keys['KeyD']||_keys['ArrowRight']){ t.x+=_rightV2.x*speed; t.z+=_rightV2.z*speed; }
+  if(_keys['KeyE']) t.y += speed;
+  if(_keys['KeyQ']) t.y -= speed;
+
+  const limit = P.cube*1.5;
+  t.x=Math.max(-limit,Math.min(limit,t.x));
+  t.y=Math.max(-limit,Math.min(limit,t.y));
+  t.z=Math.max(-limit,Math.min(limit,t.z));
+}
+
+// ── Free-cam (first-person fly) ──
+function toggleFreecam(){
+  if(freecam.active) exitFreecam(); else enterFreecam();
+}
+
+function enterFreecam(){
+  freecam.active = true;
+  // Start at current camera position/direction
+  freecam.pos.x = camera.position.x;
+  freecam.pos.y = camera.position.y;
+  freecam.pos.z = camera.position.z;
+  freecam.yaw   = orbit.theta - Math.PI;
+  freecam.pitch = -(orbit.phi - Math.PI/2);
+  document.getElementById('freecam-hint').style.display='block';
+  // Request pointer lock for smooth mouse-look
+  renderer.domElement.requestPointerLock();
+}
+
+function exitFreecam(){
+  freecam.active = false;
+  freecam.locked = false;
+  document.getElementById('freecam-hint').style.display='none';
+  if(document.pointerLockElement) document.exitPointerLock();
+  // Sync orbit back so view doesn't jump
+  const dx=freecam.pos.x-orbit.target.x;
+  const dy=freecam.pos.y-orbit.target.y;
+  const dz=freecam.pos.z-orbit.target.z;
+  orbit.radius = Math.sqrt(dx*dx+dy*dy+dz*dz)||10;
+  orbit.phi    = Math.acos(Math.max(-1,Math.min(1,dy/orbit.radius)));
+  orbit.theta  = Math.atan2(dx, dz);
+}
+
+let _fcFwd=null,_fcRight=null;
+function freecamTick(dt){
+  if(!freecam.active) return;
+  if(!_fcFwd){ _fcFwd=new THREE.Vector3(); _fcRight=new THREE.Vector3(); }
+
+  const sprint = _keys['ShiftLeft']||_keys['ShiftRight'];
+  const speed  = (sprint ? 18 : 6) * dt;
+
+  const yaw=freecam.yaw, pitch=freecam.pitch;
+  _fcFwd.set( Math.sin(yaw)*Math.cos(pitch), Math.sin(pitch), Math.cos(yaw)*Math.cos(pitch));
+  _fcRight.set(Math.cos(yaw),0,-Math.sin(yaw));
+
+  const p=freecam.pos;
+  if(_keys['KeyW']||_keys['ArrowUp'])   { p.x+=_fcFwd.x*speed;  p.y+=_fcFwd.y*speed;  p.z+=_fcFwd.z*speed;  }
+  if(_keys['KeyS']||_keys['ArrowDown']) { p.x-=_fcFwd.x*speed;  p.y-=_fcFwd.y*speed;  p.z-=_fcFwd.z*speed;  }
+  if(_keys['KeyA']||_keys['ArrowLeft']) { p.x-=_fcRight.x*speed; p.z-=_fcRight.z*speed; }
+  if(_keys['KeyD']||_keys['ArrowRight']){ p.x+=_fcRight.x*speed; p.z+=_fcRight.z*speed; }
+  if(_keys['KeyE']) p.y += speed;
+  if(_keys['KeyQ']) p.y -= speed;
+}
+
+// Pan vectors
+let _panRight = null;
+let _panUp    = null;
+
+function orbitPan(dx, dy){
+  if(!_panRight){ _panRight = new THREE.Vector3(); _panUp = new THREE.Vector3(); }
+  const panSpeed = orbit.radius * 0.0012;
+  camera.getWorldDirection(_panRight);
+  _panUp.set(0,1,0);
+  _panRight.crossVectors(_panRight, _panUp).normalize();
+  _panUp.set(0,1,0);
+  orbit.target.x -= (_panRight.x * dx - _panUp.x * dy) * panSpeed;
+  orbit.target.y -= (_panRight.y * dx - _panUp.y * dy) * panSpeed;
+  orbit.target.z -= (_panRight.z * dx - _panUp.z * dy) * panSpeed;
+  const limit = P.cube * 1.5;
+  orbit.target.x = Math.max(-limit, Math.min(limit, orbit.target.x));
+  orbit.target.y = Math.max(-limit, Math.min(limit, orbit.target.y));
+  orbit.target.z = Math.max(-limit, Math.min(limit, orbit.target.z));
+}
+
+function setupOrbit(){
+  const dom = renderer.domElement;
+
+  const startOrbit=(x,y)=>{ orbit.dragging=true;  orbit.lx=x; orbit.ly=y; orbit._downX=x; orbit._downY=y; };
+  const startPan  =(x,y)=>{ orbit.panning=true;   orbit.lx=x; orbit.ly=y; };
+  const stopAll   =(x,y)=>{
+    if(orbit.dragging){
+      const dx=x-orbit._downX, dy=y-orbit._downY;
+      if(Math.sqrt(dx*dx+dy*dy)<5 && P.paused) tryInspect(x,y);
+    }
+    orbit.dragging=false; orbit.panning=false;
+  };
+  const move=(x,y)=>{
+    if(freecam.active && freecam.locked) return; // mouse-look handled via pointermove
+    const dx=x-orbit.lx, dy=y-orbit.ly;
+    if(orbit.panning)       orbitPan(dx, dy);
+    else if(orbit.dragging){ orbit.theta-=dx*0.005; orbit.phi=Math.max(0.1,Math.min(PI-0.1,orbit.phi+dy*0.005)); }
+    orbit.lx=x; orbit.ly=y;
+  };
+
+  dom.addEventListener('mousedown', e=>{
+    if(freecam.active){ if(!freecam.locked) dom.requestPointerLock(); return; }
+    if(e.button===0)           startOrbit(e.clientX,e.clientY);
+    else if(e.button===1||e.button===2){ e.preventDefault(); startPan(e.clientX,e.clientY); }
+  });
+  dom.addEventListener('mouseup',   e=>stopAll(e.clientX,e.clientY));
+  document.addEventListener('pointerlockchange',()=>{
+    freecam.locked = document.pointerLockElement === dom;
+  });
+  dom.addEventListener('mousemove', e=>{ if(!freecam.active||!freecam.locked) move(e.clientX,e.clientY); });
+  // Pointer-lock mouse-look for free-fly
+  dom.addEventListener('mousemove', e=>{
+    if(!freecam.active || !freecam.locked) return;
+    freecam.yaw   += e.movementX * 0.002;
+    freecam.pitch  = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, freecam.pitch - e.movementY*0.002));
+  });
+  dom.addEventListener('mouseleave',()=>{ orbit.dragging=false; orbit.panning=false; });
+  dom.addEventListener('contextmenu',e=>e.preventDefault());
+  dom.addEventListener('wheel',e=>{
+    if(freecam.active) return;
+    orbit.radius=Math.max(2,Math.min(220,orbit.radius+e.deltaY*0.05));
+  });
+  dom.addEventListener('dblclick',()=>{
+    if(freecam.active) exitFreecam();
+    else { orbit.target.x=0; orbit.target.y=0; orbit.target.z=0; }
+  });
+
+  let _t2lx=0,_t2ly=0;
+  dom.addEventListener('touchstart',e=>{
+    if(e.touches.length===1) startOrbit(e.touches[0].clientX,e.touches[0].clientY);
+    else if(e.touches.length===2){ orbit.dragging=false; _t2lx=(e.touches[0].clientX+e.touches[1].clientX)/2; _t2ly=(e.touches[0].clientY+e.touches[1].clientY)/2; startPan(_t2lx,_t2ly); }
+  },{passive:true});
+  dom.addEventListener('touchend',e=>{ if(e.touches.length===0) stopAll(e.changedTouches[0].clientX,e.changedTouches[0].clientY); },{passive:true});
+  dom.addEventListener('touchmove',e=>{
+    if(e.touches.length===1) move(e.touches[0].clientX,e.touches[0].clientY);
+    else if(e.touches.length===2){ const mx=(e.touches[0].clientX+e.touches[1].clientX)/2,my=(e.touches[0].clientY+e.touches[1].clientY)/2; move(mx,my); }
+  },{passive:true});
+}
+
+// ── Boid inspector ──
+let _raycaster, _mouse;
+
+function tryInspect(clientX,clientY){
+  const rect=renderer.domElement.getBoundingClientRect();
+  _mouse.x=((clientX-rect.left)/rect.width)*2-1;
+  _mouse.y=-((clientY-rect.top)/rect.height)*2+1;
+  _raycaster.setFromCamera(_mouse,camera);
+  // Find nearest boid whose mesh group is hit, or nearest boid by distance to ray
+  let best=null, bestDist=Infinity;
+  for(const v of voids){
+    if(!v.group) continue;
+    // Use closest point on ray to boid position
+    const d=_raycaster.ray.distanceToPoint(v.pos);
+    const worldSize=P.size*(v.dna?v.dna.bodySize:1)*3;
+    if(d<worldSize && d<bestDist){ bestDist=d; best=v; }
+  }
+  if(best) showInspector(best);
+}
+
+function irow(label,val){ return `<div class="irow"><span class="ilabel">${label}</span><span class="ival">${val}</span></div>`; }
+function igroup(label){ return `<div class="igroup">${label}</div>`; }
+function isep(){ return '<hr class="isep">'; }
+
+function showInspector(v){
+  const d=v.dna;
+  const pct=n=>Math.round(n*100)+'%';
+  const f=n=>n.toFixed(2);
+  const isEco=P.ecoMode;
+
+  let html=`
+    ${irow('Generation', v.gen)}
+    ${irow('Age', f(v.age)+'s / '+f(d.lifespan)+'s')}
+    ${irow('Energy', f(v.energy)+' / '+f(v.maxEnergy)+' ('+pct(v.energy/v.maxEnergy)+')')}
+    ${isep()}
+    ${igroup('LOCOMOTION')}
+    ${irow('Body Size',  f(d.bodySize))}
+    ${irow('Max Speed',  f(d.maxSpeed))}
+    ${irow('Turn Rate',  f(d.turnRate))}
+    ${isep()}
+    ${igroup('PERCEPTION')}
+    ${irow('Flock Sphere', f(d.flockSphere))}
+    ${irow('Vision Range', f(d.visionRange))}
+    ${irow('Vision Angle', Math.round(d.visionAngle*(180/PI))+'°')}
+    ${isep()}
+    ${igroup('SOCIAL')}
+    ${irow('Separation', f(d.separation))}
+    ${irow('Alignment',  f(d.alignment))}
+    ${irow('Cohesion',   f(d.cohesion))}`;
+
+  if(isEco) html+=`
+    ${isep()}
+    ${igroup('ECOLOGY')}
+    ${irow('Passive Gain', f(d.passiveGain))}
+    ${irow('Hunt Drive',   f(d.huntDrive))}
+    ${irow('Flee Drive',   f(d.fleeDrive))}
+    ${irow('Pref Altitude',f(d.preferredAlt))}`;
+
+  html+=`
+    ${isep()}
+    ${igroup('GENETICS')}
+    ${irow('Hue', Math.round(d.hue*360)+'°')}
+    ${irow('Lifespan', f(d.lifespan)+'s')}`;
+
+  document.getElementById('inspector-body').innerHTML=html;
+  document.getElementById('inspector').classList.add('visible');
+}
+
+document.getElementById('inspector-close').addEventListener('click',()=>{
+  document.getElementById('inspector').classList.remove('visible');
+});
+function updateCamera(dt){
+  orbitKeyMove(dt);
+  freecamTick(dt);
+  if(freecam.active){
+    const p=freecam.pos, yaw=freecam.yaw, pitch=freecam.pitch;
+    camera.position.set(p.x, p.y, p.z);
+    camera.rotation.order='YXZ';
+    camera.rotation.y = yaw;
+    camera.rotation.x = pitch;
+  } else {
+    if(P.autoRotate) orbit.theta+=dt*0.22;
+    const t=orbit.target;
+    camera.position.set(
+      t.x + orbit.radius*Math.sin(orbit.phi)*Math.sin(orbit.theta),
+      t.y + orbit.radius*Math.cos(orbit.phi),
+      t.z + orbit.radius*Math.sin(orbit.phi)*Math.cos(orbit.theta)
+    );
+    camera.lookAt(t.x, t.y, t.z);
+  }
+}
+
+// ── Main init ──
+function main(){
+  _raycaster=new THREE.Raycaster(); _mouse=new THREE.Vector2(); _raycaster.params.Points={threshold:3};
+  UP=new THREE.Vector3(0,1,0); tmpQ=new THREE.Quaternion(); tmpV=new THREE.Vector3(); tmpV2=new THREE.Vector3();
+
+  scene=new THREE.Scene();
+  // fog off by default
+
+  camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000);
+  camera.position.set(38,24,46); camera.lookAt(0,0,0);
+
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth,innerHeight);
+  renderer.setClearColor(0x050508,1);
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff,0.45));
+  const d1=new THREE.DirectionalLight(0xffffff,0.8); d1.position.set(20,30,15); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x8888ff,0.3); d2.position.set(-20,-10,-15); scene.add(d2);
+
+  buildBox(); buildAxes();
+  trailGroup=new THREE.Group(); scene.add(trailGroup);
+  bubbleGroup=new THREE.Group(); bubbleGroup.visible=false; scene.add(bubbleGroup);
+
+  // Build shared wireframe geometries for perception bubbles
+  wfSphereGeo = makeWireframeSphere(8);
+  wfConeGeo   = makeWireframeCone(10);
+
+  buildVoids(P.count);
+  setupOrbit();
+  setupTreeInteraction();
+  window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+  loop();
+}
+
+// ── Main loop ──
+let lastT=0;
+function loop(t=0){
+  requestAnimationFrame(loop);
+  const dt=Math.min((t-lastT)/1000,0.05);
+  lastT=t;
+
+  if(!P.paused){
+  if(P.evoMode || P.ecoMode) simTime += dt;
+  tallyTick(dt * 1000);
+  floaterTick(dt);
+  applyBoidRules(dt);
+  voids.forEach(v=>v.update(dt));
+
+  if(P.evoMode || P.ecoMode){
+    for(let i=voids.length-1;i>=0;i--){
+      if(!voids[i].alive){
+        const dying = voids[i];
+        const cause = lineageStore.get(dying.eid)?.causeOfDeath || 'starvation';
+        tallyAddDeath(dying, cause);
+        // Floating icon above the boid
+        const fIcon  = cause==='age' ? '☽' : cause==='predation' ? '⚔' : '✦';
+        const fColor = cause==='age' ? '#ffd700' : cause==='predation' ? '#ff3a3a' : '#c0388a';
+        floaterSpawn(dying.pos, fIcon, fColor);
+        if(P.ecoMode) spawnCorpseFood(dying);
+        dying.destroy(); voids.splice(i,1); totalDeaths++;
+      }
+    }
+    for(const sp of toSpawn){
+      const nb = new Void(sp.dna,sp.gen,sp.energy,sp.pos,sp.parentEid);
+      voids.push(nb);
+      tallyAddBirth(nb);
+      floaterSpawn(nb.pos, '⊕', '#44ff88');
+    }
+    toSpawn.length=0;
+    chartTimer+=dt;
+    if(chartTimer>=CHART_INT){chartTimer=0;sampleTraits(); if(P_showTree) drawTreeCanvas();}
+    drawChart();
+  }
+
+  if(P.ecoMode) updateFoodDrift(dt);
+  if(P.evoMode||P.ecoMode) updateFoodRegen(dt);
+
+  } // end if(!P.paused)
+
+  drawTrails();
+  updateCamera(dt);
+  if(foodMat&&foodMat.uniforms) foodMat.uniforms.uScale.value = orbit.radius * 2.5;
+
+  frameCount++; fpsTime+=dt;
+  if(fpsTime>=0.5){
+    document.getElementById('s-fps').textContent    = Math.round(frameCount/fpsTime);
+    document.getElementById('s-count').textContent  = voids.length;
+    document.getElementById('s-births').textContent = totalBirths;
+    document.getElementById('s-deaths').textContent = totalDeaths;
+    document.getElementById('s-gen').textContent    = maxGen;
+    if((P.evoMode||P.ecoMode)&&voids.length>0){
+      let ts=0,tf=0,tv=0,ta=0;
+      voids.forEach(v=>{ts+=v.dna.maxSpeed;tf+=v.dna.flockSphere;tv+=v.dna.visionRange;ta+=v.dna.visionAngle*(180/PI);});
+      const n=voids.length;
+      document.getElementById('s-aspeed').textContent=(ts/n).toFixed(2);
+      document.getElementById('s-aflock').textContent=(tf/n).toFixed(2);
+      document.getElementById('s-avis').textContent  =(tv/n).toFixed(2);
+      document.getElementById('s-afood').textContent =(ta/n).toFixed(1)+'°';
+    } else {
+      ['s-aspeed','s-aflock','s-avis','s-afood'].forEach(id=>document.getElementById(id).textContent='—');
+    }
+    frameCount=0; fpsTime=0;
+  }
+  renderer.render(scene,camera);
+}
+</script>
+</body>
+</html>
