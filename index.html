@@ -231,7 +231,12 @@
   #inspector .isep { border:none; border-top:1px solid rgba(255,255,255,0.07); margin:6px 0; }
   #inspector .icls { float:right; cursor:pointer; color:var(--dim); font-size:11px; line-height:1; margin-top:-2px; }
   #inspector .icls:hover { color:#fff; }
-  #inspector .igroup { font-size:8px; letter-spacing:2px; color:var(--accent); margin:6px 0 3px; }
+  #inspector .igroup { font-size:8px; letter-spacing:2px; color:var(--accent); margin:6px 0 3px; cursor:pointer; user-select:none; display:flex; align-items:center; gap:4px; }
+  #inspector .igroup:hover { color:#fff; }
+  #inspector .igroup::before { content:'▾'; font-size:7px; transition:transform 0.15s; display:inline-block; }
+  #inspector .igroup.collapsed::before { transform:rotate(-90deg); }
+  #inspector .isection-body { overflow:hidden; max-height:200px; transition:max-height 0.2s ease; }
+  #inspector .isection-body.collapsed { max-height:0; }
 </style>
 </head>
 <body>
@@ -3381,8 +3386,25 @@ function tryInspect(clientX,clientY){
 }
 
 function irow(label,val){ return `<div class="irow"><span class="ilabel">${label}</span><span class="ival">${val}</span></div>`; }
-function igroup(label){ return `<div class="igroup">${label}</div>`; }
 function isep(){ return '<hr class="isep">'; }
+
+// Collapsible section state persists across inspector updates
+const _inspCollapsed = {};
+function igroup(id, label){ return `<div class="igroup${_inspCollapsed[id]?' collapsed':''}" data-isec="${id}">${label}</div>`; }
+function isecOpen(id){ return `<div class="isection-body${_inspCollapsed[id]?' collapsed':''}" data-isec-body="${id}">`; }
+function isecClose(){ return `</div>`; }
+
+function boidModel(dna){
+  if(!P.ecoMode) return 'Standard';
+  const plant = Math.min(1,(dna.passiveGain||0)/2.5);
+  const pred  = Math.min(1,(dna.huntDrive||0)/1.5);
+  const prey  = Math.min(1,(dna.fleeDrive||0)/1.5)*(1-pred*0.7);
+  const max   = Math.max(plant, pred, prey);
+  if(max < 0.15) return 'Generalist';
+  if(max === pred)  return 'Predator';
+  if(max === plant) return 'Plant';
+  return 'Prey';
+}
 
 function showInspector(v){
   const d=v.dna;
@@ -3391,42 +3413,63 @@ function showInspector(v){
   const isEco=P.ecoMode;
 
   let html=`
+    ${irow('Model', boidModel(d))}
     ${irow('Generation', v.gen)}
     ${irow('Age', f(v.age)+'s / '+f(d.lifespan)+'s')}
     ${irow('Energy', f(v.energy)+' / '+f(v.maxEnergy)+' ('+pct(v.energy/v.maxEnergy)+')')}
     ${isep()}
-    ${igroup('LOCOMOTION')}
+    ${igroup('loco','LOCOMOTION')}
+    ${isecOpen('loco')}
     ${irow('Body Size',  f(d.bodySize))}
     ${irow('Max Speed',  f(d.maxSpeed))}
     ${irow('Turn Rate',  f(d.turnRate))}
+    ${isecClose()}
     ${isep()}
-    ${igroup('PERCEPTION')}
+    ${igroup('perc','PERCEPTION')}
+    ${isecOpen('perc')}
     ${irow('Flock Sphere', f(d.flockSphere))}
     ${irow('Vision Range', f(d.visionRange))}
     ${irow('Vision Angle', Math.round(d.visionAngle*(180/PI))+'°')}
+    ${isecClose()}
     ${isep()}
-    ${igroup('SOCIAL')}
+    ${igroup('soc','SOCIAL')}
+    ${isecOpen('soc')}
     ${irow('Separation', f(d.separation))}
     ${irow('Alignment',  f(d.alignment))}
-    ${irow('Cohesion',   f(d.cohesion))}`;
+    ${irow('Cohesion',   f(d.cohesion))}
+    ${isecClose()}`;
 
   if(isEco) html+=`
     ${isep()}
-    ${igroup('ECOLOGY')}
+    ${igroup('eco','ECOLOGY')}
+    ${isecOpen('eco')}
     ${irow('Passive Gain', f(d.passiveGain))}
     ${irow('Hunt Drive',   f(d.huntDrive))}
     ${irow('Flee Drive',   f(d.fleeDrive))}
-    ${irow('Pref Altitude',f(d.preferredAlt))}`;
+    ${irow('Pref Altitude',f(d.preferredAlt))}
+    ${isecClose()}`;
 
   html+=`
     ${isep()}
-    ${igroup('GENETICS')}
+    ${igroup('gen','GENETICS')}
+    ${isecOpen('gen')}
     ${irow('Hue', Math.round(d.hue*360)+'°')}
-    ${irow('Lifespan', f(d.lifespan)+'s')}`;
+    ${irow('Lifespan', f(d.lifespan)+'s')}
+    ${isecClose()}`;
 
   document.getElementById('inspector-body').innerHTML=html;
   document.getElementById('inspector').classList.add('visible');
 }
+
+document.getElementById('inspector-body').addEventListener('click',e=>{
+  const grp=e.target.closest('.igroup');
+  if(!grp) return;
+  const id=grp.dataset.isec;
+  _inspCollapsed[id]=!_inspCollapsed[id];
+  grp.classList.toggle('collapsed');
+  const body=document.querySelector(`[data-isec-body="${id}"]`);
+  if(body) body.classList.toggle('collapsed');
+});
 
 document.getElementById('inspector-close').addEventListener('click',()=>{
   document.getElementById('inspector').classList.remove('visible');
