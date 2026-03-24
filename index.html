@@ -231,6 +231,7 @@
   #inspector .isep { border:none; border-top:1px solid rgba(255,255,255,0.07); margin:6px 0; }
   #inspector .icls { float:right; cursor:pointer; color:var(--dim); font-size:11px; line-height:1; margin-top:-2px; }
   #inspector .icls:hover { color:#fff; }
+  #inspector-preview { width:100%; height:90px; border-radius:4px; margin-bottom:8px; display:block; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); }
   #inspector .igroup { font-size:8px; letter-spacing:2px; color:var(--accent); margin:6px 0 3px; cursor:pointer; user-select:none; display:flex; align-items:center; gap:4px; }
   #inspector .igroup:hover { color:#fff; }
   #inspector .igroup::before { content:'▾'; font-size:7px; transition:transform 0.15s; display:inline-block; }
@@ -243,6 +244,7 @@
 <div id="inspector">
   <span class="icls" id="inspector-close">✕</span>
   <h3>BOID INSPECTOR</h3>
+  <canvas id="inspector-preview"></canvas>
   <div id="inspector-body"></div>
 </div>
 <div id="canvas-container"></div>
@@ -3459,6 +3461,7 @@ function showInspector(v){
 
   document.getElementById('inspector-body').innerHTML=html;
   document.getElementById('inspector').classList.add('visible');
+  _ipShowModel(v);
 }
 
 document.getElementById('inspector-body').addEventListener('click',e=>{
@@ -3471,8 +3474,78 @@ document.getElementById('inspector-body').addEventListener('click',e=>{
   if(body) body.classList.toggle('collapsed');
 });
 
+// ── Inspector 3D preview (lazy init — THREE not available at parse time) ──
+let _ipRenderer=null, _ipScene=null, _ipCamera=null, _ipGroup=null, _ipAnimId=null;
+const _ipCanvas = document.getElementById('inspector-preview');
+
+function _ipInit(){
+  if(_ipRenderer) return;
+  _ipRenderer = new THREE.WebGLRenderer({canvas:_ipCanvas, alpha:true, antialias:true});
+  _ipRenderer.setPixelRatio(window.devicePixelRatio);
+  _ipScene = new THREE.Scene();
+  _ipCamera = new THREE.PerspectiveCamera(40, 1, 0.01, 50);
+  _ipCamera.position.set(0, 0.6, 2.2);
+  _ipCamera.lookAt(0, 0.4, 0);
+  _ipScene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.2);
+  dl.position.set(2, 3, 4);
+  _ipScene.add(dl);
+}
+
+function _ipClearModel(){
+  if(_ipGroup){
+    _ipGroup.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
+    _ipScene.remove(_ipGroup);
+    _ipGroup = null;
+  }
+  if(_ipAnimId){ cancelAnimationFrame(_ipAnimId); _ipAnimId=null; }
+}
+
+function _ipShowModel(boid){
+  _ipInit();
+  _ipClearModel();
+  const w = _ipCanvas.clientWidth, h = _ipCanvas.clientHeight;
+  _ipRenderer.setSize(w, h, false);
+  _ipCamera.aspect = w / h;
+  _ipCamera.updateProjectionMatrix();
+
+  // Clone the boid's meshes (main cone + glow cone)
+  _ipGroup = new THREE.Group();
+  boid.group.children.forEach(child=>{
+    if(!child.visible) return;
+    const geo = child.geometry.clone();
+    const mat = child.material.clone();
+    _ipGroup.add(new THREE.Mesh(geo, mat));
+  });
+
+  // Fit to preview: compute bounding box and scale
+  const box = new THREE.Box3().setFromObject(_ipGroup);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = 1.2 / maxDim;
+  _ipGroup.scale.setScalar(scale);
+
+  // Center vertically
+  box.setFromObject(_ipGroup);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  _ipGroup.position.sub(center);
+  _ipGroup.position.y += 0.4;
+
+  _ipScene.add(_ipGroup);
+
+  // Slow rotation animation
+  (function animate(){
+    _ipAnimId = requestAnimationFrame(animate);
+    if(_ipGroup) _ipGroup.rotation.y += 0.012;
+    _ipRenderer.render(_ipScene, _ipCamera);
+  })();
+}
+
 document.getElementById('inspector-close').addEventListener('click',()=>{
   document.getElementById('inspector').classList.remove('visible');
+  _ipClearModel();
 });
 function updateCamera(dt){
   orbitKeyMove(dt);
