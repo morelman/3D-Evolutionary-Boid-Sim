@@ -3463,7 +3463,7 @@ function showInspector(v){
   const isEco=P.ecoMode;
 
   let html=`
-    ${irow('Model', boidModel(d))}
+    ${irow('Type', boidModel(d))}
     ${irow('Generation', v.gen)}
     ${irow('Age', f(v.age)+'s / '+f(d.lifespan)+'s')}
     ${irow('Energy', f(v.energy)+' / '+f(v.maxEnergy)+' ('+pct(v.energy/v.maxEnergy)+')')}
@@ -3565,6 +3565,9 @@ function _ipShowModel(boid){
     const mat = child.material.clone();
     _ipGroup.add(new THREE.Mesh(geo, mat));
   });
+
+  // Rotate so boid points to the right (default is up along Y)
+  _ipGroup.rotation.z = -Math.PI / 2;
 
   // Fit to preview: compute bounding box and scale
   const box = new THREE.Box3().setFromObject(_ipGroup);
