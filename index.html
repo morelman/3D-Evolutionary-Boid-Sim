@@ -3369,6 +3369,52 @@ function setupOrbit(){
 
 // ── Boid inspector ──
 let _raycaster, _mouse;
+let _selectedBoid = null;
+let _selectedHighlight = null; // wireframe mesh for selected boid
+
+function _buildHighlight(){
+  if(_selectedHighlight){ scene.remove(_selectedHighlight); _selectedHighlight.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}); _selectedHighlight=null; }
+}
+function _clearSelection(){
+  _selectedBoid=null;
+  if(_selectedHighlight){ scene.remove(_selectedHighlight); _selectedHighlight.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}); _selectedHighlight=null; }
+}
+function _updateHighlight(){
+  if(!_selectedBoid || !_selectedBoid.group || !_selectedBoid.alive || !document.getElementById('inspector').classList.contains('visible')) { _clearSelection(); return; }
+  const v = _selectedBoid;
+  const col = parseInt(P.boxColor.replace('#','0x'));
+  // Rebuild highlight if it doesn't exist yet
+  if(!_selectedHighlight){
+    const isEvo2 = P.evoMode||P.ecoMode;
+    const d = v.dna;
+    const coneH = P.aspect*0.55;
+    const coneR = 0.32;
+    let nicheAspect = 1.0;
+    if(P.ecoMode){
+      const hunt = Math.min(1,(d.huntDrive||0)/1.5);
+      const plant = Math.min(1,(d.passiveGain||0)/2.5);
+      nicheAspect = 1.0 + hunt*1.2 - plant*0.6;
+    }
+    const bH = coneH * nicheAspect;
+    const bR = coneR / Math.sqrt(nicheAspect);
+    // Slightly larger wireframe cone
+    const geo = new THREE.ConeGeometry(bR*1.5, bH*1.2, 12);
+    geo.translate(0, bH*1.2/2, 0);
+    const wfGeo = new THREE.WireframeGeometry(geo);
+    const mat = new THREE.LineBasicMaterial({color:col, transparent:true, opacity:0.85, linewidth:2});
+    _selectedHighlight = new THREE.LineSegments(wfGeo, mat);
+    scene.add(_selectedHighlight);
+    geo.dispose();
+  }
+  // Update color to match current box color
+  _selectedHighlight.material.color.setHex(col);
+  // Follow boid position, rotation, scale
+  const bs = (P.evoMode||P.ecoMode) ? v.dna.bodySize : 1.0;
+  _selectedHighlight.scale.setScalar(P.size * bs);
+  _selectedHighlight.position.copy(v.pos);
+  _selectedHighlight.quaternion.copy(v.group.quaternion);
+  _selectedHighlight.visible = true;
+}
 
 function tryInspect(clientX,clientY){
   const rect=renderer.domElement.getBoundingClientRect();
@@ -3409,6 +3455,8 @@ function boidModel(dna){
 }
 
 function showInspector(v){
+  _clearSelection();
+  _selectedBoid = v;
   const d=v.dna;
   const pct=n=>Math.round(n*100)+'%';
   const f=n=>n.toFixed(2);
@@ -3546,6 +3594,7 @@ function _ipShowModel(boid){
 document.getElementById('inspector-close').addEventListener('click',()=>{
   document.getElementById('inspector').classList.remove('visible');
   _ipClearModel();
+  _clearSelection();
 });
 function updateCamera(dt){
   orbitKeyMove(dt);
@@ -3675,6 +3724,7 @@ function loop(t=0){
     }
     frameCount=0; fpsTime=0;
   }
+  _updateHighlight();
   renderer.render(scene,camera);
 }
 </script>
