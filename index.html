@@ -2001,6 +2001,7 @@ class Void {
 
   _buildMesh(){
     if(this.group){this.group.traverse(o=>{if(o.geometry)o.geometry.dispose();}); if(this.mat)this.mat.dispose(); if(this.glowMat)this.glowMat.dispose(); scene.remove(this.group);}
+    if(this._hbGroup){this._hbGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}); scene.remove(this._hbGroup);}
     if(this.bubSphere){bubbleGroup.remove(this.bubSphere); this.bubSphere.material.dispose();}
     if(this.bubCone)  {bubbleGroup.remove(this.bubCone);   this.bubCone.material.dispose();}
 
@@ -2037,6 +2038,42 @@ class Void {
 
     scene.add(this.group);
 
+    // ── Health bar (below model, billboarded toward camera) ──
+    {
+      const barW = 0.9, barH = 0.09;
+      this._hbW = barW;
+      this._hbGroup = new THREE.Group();
+
+      // Background
+      const bgGeo = new THREE.PlaneGeometry(barW, barH);
+      this._hbBgMat = new THREE.MeshBasicMaterial({color:0x111111, transparent:true, opacity:0.65, depthTest:false});
+      this._hbGroup.add(new THREE.Mesh(bgGeo, this._hbBgMat));
+
+      // Fill bar (anchored at left edge via translated geometry)
+      const fillGeo = new THREE.PlaneGeometry(barW, barH * 0.82);
+      fillGeo.translate(barW / 2, 0, 0);
+      this._hbFillMat = new THREE.MeshBasicMaterial({color:0x44ff44, transparent:true, opacity:0.85, depthTest:false});
+      this._hbFill = new THREE.Mesh(fillGeo, this._hbFillMat);
+      this._hbFill.position.x = -barW / 2;
+      this._hbGroup.add(this._hbFill);
+
+      // Reproduction threshold line (yellow)
+      const reproLineGeo = new THREE.PlaneGeometry(0.025, barH * 2.0);
+      this._hbReproMat = new THREE.MeshBasicMaterial({color:0xffdd00, transparent:true, opacity:0.95, depthTest:false});
+      this._hbReproLine = new THREE.Mesh(reproLineGeo, this._hbReproMat);
+      this._hbGroup.add(this._hbReproLine);
+
+      // Post-reproduction energy line (orange) — shows where energy drops to after reproducing
+      const postReproGeo = new THREE.PlaneGeometry(0.02, barH * 1.6);
+      this._hbPostReproMat = new THREE.MeshBasicMaterial({color:0xff6622, transparent:true, opacity:0.85, depthTest:false});
+      this._hbPostReproLine = new THREE.Mesh(postReproGeo, this._hbPostReproMat);
+      this._hbGroup.add(this._hbPostReproLine);
+
+      this._hbGroup.renderOrder = 999;
+      this._hbGroup.visible = false;
+      scene.add(this._hbGroup);
+    }
+
     // Perception bubble meshes (LineSegments using shared wire geometries)
     const mkBub=(wGeo,color,opacity)=>{
       const mat=new THREE.LineBasicMaterial({color,transparent:true,opacity});
@@ -2058,6 +2095,7 @@ class Void {
     if(this.group){this.group.traverse(o=>{if(o.geometry)o.geometry.dispose();}); scene.remove(this.group);}
     if(this.mat)this.mat.dispose();
     if(this.glowMat)this.glowMat.dispose();
+    if(this._hbGroup){this._hbGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}); scene.remove(this._hbGroup);}
     if(this.bubSphere){bubbleGroup.remove(this.bubSphere); this.bubSphere.material.dispose();}
     if(this.bubCone)  {bubbleGroup.remove(this.bubCone);   this.bubCone.material.dispose();}
   }
@@ -2302,6 +2340,34 @@ class Void {
         this.glowMesh.visible=true;
       } else {
         this.glowMesh.visible=false;
+      }
+    }
+
+    // ── Health bar (billboarded below boid) ──
+    if(this._hbGroup){
+      if(isEvo2){
+        const worldScale = P.size * bs;
+        this._hbGroup.visible = true;
+        // Position below the boid (offset downward in world Y)
+        this._hbGroup.position.set(this.pos.x, this.pos.y - worldScale * 0.35, this.pos.z);
+        this._hbGroup.scale.setScalar(worldScale * 0.9);
+        // Billboard: face the camera
+        this._hbGroup.quaternion.copy(camera.quaternion);
+        // Update fill
+        const eFrac = Math.max(0, Math.min(1, this.energy / this.maxEnergy));
+        this._hbFill.scale.x = Math.max(0.001, eFrac);
+        // Color: green → yellow → red
+        const r = eFrac < 0.5 ? 1.0 : 1.0 - (eFrac - 0.5) * 2;
+        const g = eFrac > 0.5 ? 1.0 : eFrac * 2;
+        this._hbFillMat.color.setRGB(r, g, 0.05);
+        // Repro threshold line
+        const reproFrac = P.reproThresh / 100;
+        this._hbReproLine.position.x = -this._hbW / 2 + this._hbW * reproFrac;
+        // Post-repro line: energy after reproduction = thresh * (1 - reproCost/100)
+        const postFrac = reproFrac * (1 - P.reproCost / 100);
+        this._hbPostReproLine.position.x = -this._hbW / 2 + this._hbW * postFrac;
+      } else {
+        this._hbGroup.visible = false;
       }
     }
 
