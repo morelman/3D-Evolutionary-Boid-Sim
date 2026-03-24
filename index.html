@@ -316,6 +316,9 @@
   <!-- ACTIONS -->
   <div class="section">
     <div class="section-label">Actions</div>
+    <button class="toggle-btn" id="btn-reset">START / RESET SIMULATION</button>
+    <button class="toggle-btn" id="btn-pause">⏸ PAUSE</button>
+    <button class="toggle-btn" id="btn-defaults">↺ DEFAULTS</button>
     <button class="toggle-btn" id="btn-lock-all">🔒 LOCK ALL PARAMS</button>
   </div>
 
@@ -327,11 +330,8 @@
     <button class="toggle-btn" id="btn-chart" style="display:none">TRAIT DRIFT CHART</button>
     <button class="toggle-btn" id="btn-tree" style="display:none">🌿 EVO TREE</button>
     <button class="toggle-btn" id="btn-tally" style="display:none">📋 TALLY</button>
-    <button class="toggle-btn" id="btn-reset">START / RESET SIMULATION</button>
-    <button class="toggle-btn" id="btn-pause" style="display:none">⏸ PAUSE</button>
     <button class="toggle-btn" id="btn-randomize-evo" style="display:none">🎲 RANDOMIZE PARAMS</button>
     <button class="toggle-btn eco-btn" id="btn-randomize-eco" style="display:none">🎲 RANDOMIZE PARAMS</button>
-    <button class="toggle-btn" id="btn-defaults">↺ DEFAULTS</button>
   </div>
 
   <div id="eco-section" style="display:none">
@@ -878,7 +878,6 @@ document.getElementById('btn-evo').addEventListener('click',function(){
   document.getElementById('btn-chart').style.display=(P.evoMode||P.ecoMode)?'':'none';
   document.getElementById('btn-tree').style.display=(P.evoMode||P.ecoMode)?'':'none';
   document.getElementById('btn-tally').style.display=(P.evoMode||P.ecoMode)?'':'none';
-  document.getElementById('btn-pause').style.display=(P.evoMode||P.ecoMode)?'':'none';
   document.getElementById('btn-randomize-evo').style.display=P.evoMode?'':'none';
   document.getElementById('btn-randomize-eco').style.display=P.ecoMode?'':'none';
   voids.forEach(v=>v.destroy()); voids=[]; toSpawn.length=0;
@@ -901,7 +900,6 @@ document.getElementById('btn-eco').addEventListener('click',function(){
   document.getElementById('btn-chart').style.display=(P.evoMode||P.ecoMode)?'':'none';
   document.getElementById('btn-tree').style.display=(P.evoMode||P.ecoMode)?'':'none';
   document.getElementById('btn-tally').style.display=(P.evoMode||P.ecoMode)?'':'none';
-  document.getElementById('btn-pause').style.display=(P.evoMode||P.ecoMode)?'':'none';
   document.getElementById('btn-randomize-evo').style.display=P.evoMode?'':'none';
   document.getElementById('btn-randomize-eco').style.display=P.ecoMode?'':'none';
   voids.forEach(v=>v.destroy()); voids=[]; toSpawn.length=0;
@@ -3554,7 +3552,10 @@ function loop(t=0){
       document.getElementById('s-avis').textContent  =(tv/n).toFixed(2);
       document.getElementById('s-afood').textContent =(ta/n).toFixed(1)+'°';
     } else {
-      ['s-aspeed','s-aflock','s-avis','s-afood'].forEach(id=>document.getElementById(id).textContent='—');
+      document.getElementById('s-aspeed').textContent=P.speed.toFixed(2);
+      document.getElementById('s-aflock').textContent=P.flockSphere.toFixed(1);
+      document.getElementById('s-avis').textContent  =P.visionRange.toFixed(1);
+      document.getElementById('s-afood').textContent =P.visionAngle.toFixed(0)+'°';
     }
     frameCount=0; fpsTime=0;
   }
