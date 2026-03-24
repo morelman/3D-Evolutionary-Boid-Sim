@@ -695,7 +695,11 @@
     <button class="toggle-btn active" id="btn-axes">SHOW AXES</button>
     <button class="toggle-btn active" id="btn-trails">SHOW TRAILS</button>
     <button class="toggle-btn" id="btn-fog">DEPTH FOG</button>
-    <button class="toggle-btn" id="btn-bgwhite">WHITE BACKGROUND</button>
+    <div class="control">
+      <div class="control-row" style="margin-bottom:6px;"><span class="control-name">Background Color</span>
+        <input type="color" id="r-bgColor" value="#050508" style="width:36px;height:20px;border:1px solid var(--border);background:none;cursor:pointer;border-radius:3px;padding:1px;">
+      </div>
+    </div>
     <button class="toggle-btn perc-btn" id="btn-perc">PERCEPTION BUBBLES</button>
     <button class="toggle-btn" id="btn-energycolor">ENERGY COLOR</button>
     <button class="toggle-btn" id="btn-rotate">AUTO ROTATE</button>
@@ -759,7 +763,7 @@ const P = {
   cube:32, trail:25, trailfade:0.4,
   boxColor:'#1a4a5a', boxThickness:0.05, boxOpacity:0.45,
   showBox:true, showAxes:true, showTrails:true, showFog:false,
-  showPerc:false, energyColor:false, autoRotate:false, bgWhite:false, boundMode:'bounce',
+  showPerc:false, energyColor:false, autoRotate:false, bgColor:'#050508', boundMode:'bounce',
   paused:false,
   // Evolution
   evoMode:false, showChart:false,
@@ -847,10 +851,11 @@ function mkToggle(id,key,cb){
 mkToggle('box','showBox',()=>{ if(boxHelper) boxHelper.visible=P.showBox; });
 mkToggle('axes','showAxes',()=>{ if(axesGroup) axesGroup.visible=P.showAxes; });
 mkToggle('trails','showTrails',()=>{ if(trailGroup) trailGroup.visible=P.showTrails; });
-mkToggle('fog','showFog',()=>{ if(scene) scene.fog=P.showFog?new THREE.FogExp2(P.bgWhite?0xffffff:0x050508,0.012):null; });
-mkToggle('bgwhite','bgWhite',()=>{
-  const bg=P.bgWhite?0xffffff:0x050508;
-  document.body.style.background=P.bgWhite?'#ffffff':'#050508';
+mkToggle('fog','showFog',()=>{ if(scene) scene.fog=P.showFog?new THREE.FogExp2(parseInt(P.bgColor.replace('#','0x')),0.012):null; });
+document.getElementById('r-bgColor').addEventListener('input',function(){
+  P.bgColor=this.value;
+  const bg=parseInt(P.bgColor.replace('#','0x'));
+  document.body.style.background=P.bgColor;
   renderer.setClearColor(bg,1);
   if(P.showFog) scene.fog=new THREE.FogExp2(bg,0.012);
 });
