@@ -315,11 +315,15 @@
 
   <!-- ACTIONS -->
   <div class="section">
-    <div class="section-label">Actions</div>
+    <div class="section-label" data-expanded>Actions</div>
     <button class="toggle-btn" id="btn-reset">START / RESET SIMULATION</button>
     <button class="toggle-btn" id="btn-pause">⏸ PAUSE</button>
     <button class="toggle-btn" id="btn-defaults">↺ DEFAULTS</button>
     <button class="toggle-btn" id="btn-lock-all">🔒 LOCK ALL PARAMS</button>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Cube Size</span><span class="control-value" id="v-cube">32</span></div>
+      <input type="range" id="r-cube" min="5" max="300" step="1" value="32">
+    </div>
   </div>
 
   <!-- EVOLUTION -->
@@ -650,10 +654,6 @@
   <!-- BOUNDS -->
   <div class="section">
     <div class="section-label">Bounds</div>
-    <div class="control">
-      <div class="control-row"><span class="control-name">Cube Size</span><span class="control-value" id="v-cube">32</span></div>
-      <input type="range" id="r-cube" min="5" max="300" step="1" value="32">
-    </div>
     <div class="section-label" style="margin-top:10px;margin-bottom:7px;">Boundary Mode</div>
     <div class="mode-btns">
       <button class="mode-btn active" data-mode="bounce">BOUNCE</button>
