@@ -56,6 +56,14 @@
   .lock-btn:hover { color:rgba(200,232,240,0.55); }
   .lock-btn.locked { color:#ffd700; text-shadow:0 0 6px rgba(255,215,0,0.6); }
 
+  .section-lock-btn {
+    background:none; border:none; cursor:pointer; padding:0 4px;
+    font-size:9px; line-height:1; color:rgba(200,232,240,0.2);
+    transition:color 0.15s; flex-shrink:0; margin-left:auto; margin-right:4px;
+  }
+  .section-lock-btn:hover { color:rgba(200,232,240,0.55); }
+  .section-lock-btn.locked { color:#ffd700; text-shadow:0 0 6px rgba(255,215,0,0.6); }
+
   input[type="range"] {
     -webkit-appearance:none; appearance:none; width:100%; height:3px;
     background:rgba(40,212,255,0.14); border-radius:2px; outline:none; cursor:pointer;
@@ -717,6 +725,7 @@
   <!-- ACTIONS -->
   <div class="section">
     <div class="section-label">Actions</div>
+    <button class="toggle-btn" id="btn-lock-all">🔒 LOCK ALL PARAMS</button>
     <button class="toggle-btn danger" id="btn-explode">EXPLODE BURST</button>
   </div>
 </div>
@@ -969,6 +978,18 @@ function applySliderVal(id, key, digits, val){
 // ── Slider lock buttons ──
 // Inject a 🔓/🔒 toggle into every .control-row that has a sibling range input.
 const lockedParams = new Set(); // set of slider ids (without 'r-' prefix)
+
+function syncSectionLockBtn(rangeEl) {
+  const sec = rangeEl.closest('.section');
+  if(!sec) return;
+  const sBtn = sec.querySelector(':scope > .section-label > .section-lock-btn');
+  if(!sBtn) return;
+  const sliders = sec.querySelectorAll('input[type="range"]');
+  const allLocked = sliders.length > 0 && [...sliders].every(s => lockedParams.has(s.id.replace('r-','')));
+  sBtn.textContent = allLocked ? '🔒' : '🔓';
+  sBtn.classList.toggle('locked', allLocked);
+}
+
 document.querySelectorAll('.control').forEach(ctrl => {
   const row = ctrl.querySelector('.control-row');
   const range = ctrl.querySelector('input[type="range"]');
@@ -983,6 +1004,7 @@ document.querySelectorAll('.control').forEach(ctrl => {
     e.stopPropagation();
     if(lockedParams.has(id)){ lockedParams.delete(id); btn.textContent='🔓'; btn.classList.remove('locked'); }
     else { lockedParams.add(id); btn.textContent='🔒'; btn.classList.add('locked'); }
+    syncSectionLockBtn(range);
   });
   row.appendChild(btn);
 });
@@ -1047,17 +1069,66 @@ document.getElementById('btn-randomize-eco').addEventListener('click',()=>{
 document.querySelectorAll('.section').forEach(sec=>{
   const label=sec.querySelector(':scope > .section-label');
   if(!label) return;
+
+  // Add section-level lock button if section contains sliders
+  const sliders=sec.querySelectorAll('input[type="range"]');
+  if(sliders.length>0){
+    const sBtn=document.createElement('button');
+    sBtn.className='section-lock-btn';
+    sBtn.title='Lock / unlock all parameters in this section';
+    sBtn.textContent='🔓';
+    sBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const allLocked=[...sliders].every(s=>lockedParams.has(s.id.replace('r-','')));
+      sliders.forEach(s=>{
+        const id=s.id.replace('r-','');
+        const btn=document.querySelector(`.lock-btn[data-id="${id}"]`);
+        if(allLocked){ lockedParams.delete(id); if(btn){btn.textContent='🔓';btn.classList.remove('locked');} }
+        else{ lockedParams.add(id); if(btn){btn.textContent='🔒';btn.classList.add('locked');} }
+      });
+      const nowAll=[...sliders].every(s=>lockedParams.has(s.id.replace('r-','')));
+      sBtn.textContent=nowAll?'🔒':'🔓';
+      sBtn.classList.toggle('locked',nowAll);
+    });
+    label.appendChild(sBtn);
+  }
+
   // Collect all siblings after the label into a body wrapper
   const body=document.createElement('div');
-  body.className='section-body';
+  body.className='section-body collapsed';
   const children=[...sec.children];
   const labelIdx=children.indexOf(label);
   children.slice(labelIdx+1).forEach(c=>body.appendChild(c));
   sec.appendChild(body);
+  label.classList.add('collapsed');
   label.addEventListener('click',()=>{
     const collapsed=body.classList.toggle('collapsed');
     label.classList.toggle('collapsed',collapsed);
   });
+});
+
+// ── Lock All button ──
+document.getElementById('btn-lock-all').addEventListener('click',()=>{
+  const allSliders=document.querySelectorAll('input[type="range"]');
+  const allLocked=[...allSliders].every(s=>lockedParams.has(s.id.replace('r-','')));
+  allSliders.forEach(s=>{
+    const id=s.id.replace('r-','');
+    const btn=document.querySelector(`.lock-btn[data-id="${id}"]`);
+    if(allLocked){ lockedParams.delete(id); if(btn){btn.textContent='🔓';btn.classList.remove('locked');} }
+    else{ lockedParams.add(id); if(btn){btn.textContent='🔒';btn.classList.add('locked');} }
+  });
+  // Sync all section lock buttons
+  document.querySelectorAll('.section-lock-btn').forEach(sBtn=>{
+    const sec=sBtn.closest('.section');
+    const sls=sec.querySelectorAll('input[type="range"]');
+    const nowAll=sls.length>0&&[...sls].every(s=>lockedParams.has(s.id.replace('r-','')));
+    sBtn.textContent=nowAll?'🔒':'🔓';
+    sBtn.classList.toggle('locked',nowAll);
+  });
+  const nowAllLocked=[...allSliders].every(s=>lockedParams.has(s.id.replace('r-','')));
+  const lBtn=document.getElementById('btn-lock-all');
+  lBtn.textContent=nowAllLocked?'🔓 UNLOCK ALL PARAMS':'🔒 LOCK ALL PARAMS';
+  lBtn.classList.toggle('active',nowAllLocked);
 });
 
 // ── Defaults button ──
