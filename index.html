@@ -313,6 +313,12 @@
     VIS R: <span id="s-avis">—</span> | VIS ANG: <span id="s-afood">—</span>
   </div>
 
+  <!-- ACTIONS -->
+  <div class="section">
+    <div class="section-label">Actions</div>
+    <button class="toggle-btn" id="btn-lock-all">🔒 LOCK ALL PARAMS</button>
+  </div>
+
   <!-- EVOLUTION -->
   <div class="section">
     <div class="section-label evo">⬡ Evolution Mode</div>
@@ -648,19 +654,6 @@
       <div class="control-row"><span class="control-name">Cube Size</span><span class="control-value" id="v-cube">32</span></div>
       <input type="range" id="r-cube" min="5" max="300" step="1" value="32">
     </div>
-    <div class="control">
-      <div class="control-row"><span class="control-name">Line Thickness</span><span class="control-value" id="v-boxThickness">0.05</span></div>
-      <input type="range" id="r-boxThickness" min="0.01" max="0.6" step="0.01" value="0.05">
-    </div>
-    <div class="control">
-      <div class="control-row"><span class="control-name">Line Opacity</span><span class="control-value" id="v-boxOpacity">0.45</span></div>
-      <input type="range" id="r-boxOpacity" min="0.05" max="1" step="0.05" value="0.45">
-    </div>
-    <div class="control">
-      <div class="control-row" style="margin-bottom:6px;"><span class="control-name">Line Color</span>
-        <input type="color" id="r-boxColor" value="#1a4a5a" style="width:36px;height:20px;border:1px solid var(--border);background:none;cursor:pointer;border-radius:3px;padding:1px;">
-      </div>
-    </div>
     <div class="section-label" style="margin-top:10px;margin-bottom:7px;">Boundary Mode</div>
     <div class="mode-btns">
       <button class="mode-btn active" data-mode="bounce">BOUNCE</button>
@@ -700,6 +693,19 @@
         <input type="color" id="r-bgColor" value="#050508" style="width:36px;height:20px;border:1px solid var(--border);background:none;cursor:pointer;border-radius:3px;padding:1px;">
       </div>
     </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Line Thickness</span><span class="control-value" id="v-boxThickness">0.05</span></div>
+      <input type="range" id="r-boxThickness" min="0.01" max="0.6" step="0.01" value="0.05">
+    </div>
+    <div class="control">
+      <div class="control-row"><span class="control-name">Line Opacity</span><span class="control-value" id="v-boxOpacity">0.45</span></div>
+      <input type="range" id="r-boxOpacity" min="0.05" max="1" step="0.05" value="0.45">
+    </div>
+    <div class="control">
+      <div class="control-row" style="margin-bottom:6px;"><span class="control-name">Line Color</span>
+        <input type="color" id="r-boxColor" value="#1a4a5a" style="width:36px;height:20px;border:1px solid var(--border);background:none;cursor:pointer;border-radius:3px;padding:1px;">
+      </div>
+    </div>
     <button class="toggle-btn perc-btn" id="btn-perc">PERCEPTION BUBBLES</button>
     <button class="toggle-btn" id="btn-energycolor">ENERGY COLOR</button>
     <button class="toggle-btn" id="btn-rotate">AUTO ROTATE</button>
@@ -707,7 +713,7 @@
 
   <!-- PRESETS -->
   <div class="section">
-    <div class="section-label">Parameter Preset</div>
+    <div class="section-label" data-expanded>Parameter Preset</div>
     <div style="display:flex;gap:5px;margin-bottom:6px;">
       <button class="toggle-btn" id="btn-copy-params" style="margin-bottom:0;flex:1">📋 COPY</button>
       <button class="toggle-btn" id="btn-paste-params" style="margin-bottom:0;flex:1">📥 APPLY</button>
@@ -726,12 +732,6 @@
     <div id="preset-msg" style="font-family:'Share Tech Mono',monospace;font-size:8px;height:14px;margin-top:3px;"></div>
   </div>
 
-  <!-- ACTIONS -->
-  <div class="section">
-    <div class="section-label">Actions</div>
-    <button class="toggle-btn" id="btn-lock-all">🔒 LOCK ALL PARAMS</button>
-    <button class="toggle-btn danger" id="btn-explode">EXPLODE BURST</button>
-  </div>
 </div>
 
 <script>
@@ -1100,12 +1100,13 @@ document.querySelectorAll('.section').forEach(sec=>{
 
   // Collect all siblings after the label into a body wrapper
   const body=document.createElement('div');
-  body.className='section-body collapsed';
+  const startOpen=label.hasAttribute('data-expanded');
+  body.className=startOpen?'section-body':'section-body collapsed';
   const children=[...sec.children];
   const labelIdx=children.indexOf(label);
   children.slice(labelIdx+1).forEach(c=>body.appendChild(c));
   sec.appendChild(body);
-  label.classList.add('collapsed');
+  if(!startOpen) label.classList.add('collapsed');
   label.addEventListener('click',()=>{
     const collapsed=body.classList.toggle('collapsed');
     label.classList.toggle('collapsed',collapsed);
@@ -2441,13 +2442,6 @@ function onParamChange(key){
   if((key==='groundFoodFrac'||key==='treeFoodFrac'||key==='skyFoodDrift'||key==='waterFoodFrac')&&P.ecoMode) rebuildFood();
   if((key==='waterLevel')&&P.ecoMode&&P.waterOn) { buildWaterPlane(); rebuildFood(); }
 }
-function explode(){
-  voids.forEach(v=>{
-    const d=v.pos.clone(); if(d.length()<0.1)d.set(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5); d.normalize();
-    v.vel.addScaledVector(d,3+Math.random()*5);
-  });
-}
-
 // ── Trait chart ──
 let traitHistory=[], chartEvents=[], chartTimer=0;
 const CHART_INT=2, CHART_MAX=200;
