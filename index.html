@@ -3523,7 +3523,7 @@ document.getElementById('inspector-body').addEventListener('click',e=>{
 });
 
 // ── Inspector 3D preview (lazy init — THREE not available at parse time) ──
-let _ipRenderer=null, _ipScene=null, _ipCamera=null, _ipGroup=null, _ipAnimId=null;
+let _ipRenderer=null, _ipScene=null, _ipCamera=null, _ipGroup=null, _ipPivot=null, _ipAnimId=null;
 const _ipCanvas = document.getElementById('inspector-preview');
 
 function _ipInit(){
@@ -3541,9 +3541,10 @@ function _ipInit(){
 }
 
 function _ipClearModel(){
-  if(_ipGroup){
-    _ipGroup.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
-    _ipScene.remove(_ipGroup);
+  if(_ipPivot){
+    _ipPivot.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
+    _ipScene.remove(_ipPivot);
+    _ipPivot = null;
     _ipGroup = null;
   }
   if(_ipAnimId){ cancelAnimationFrame(_ipAnimId); _ipAnimId=null; }
@@ -3577,19 +3578,22 @@ function _ipShowModel(boid){
   const scale = 1.2 / maxDim;
   _ipGroup.scale.setScalar(scale);
 
-  // Center vertically
+  // Center the group geometry so rotation is around the boid's center
   box.setFromObject(_ipGroup);
   const center = new THREE.Vector3();
   box.getCenter(center);
   _ipGroup.position.sub(center);
-  _ipGroup.position.y += 0.4;
 
-  _ipScene.add(_ipGroup);
+  // Wrap in a pivot so rotation.y spins around the centered boid
+  _ipPivot = new THREE.Group();
+  _ipPivot.add(_ipGroup);
+  _ipPivot.position.y = 0.4;
+  _ipScene.add(_ipPivot);
 
   // Slow rotation animation
   (function animate(){
     _ipAnimId = requestAnimationFrame(animate);
-    if(_ipGroup) _ipGroup.rotation.y += 0.012;
+    if(_ipPivot) _ipPivot.rotation.y += 0.012;
     _ipRenderer.render(_ipScene, _ipCamera);
   })();
 }
