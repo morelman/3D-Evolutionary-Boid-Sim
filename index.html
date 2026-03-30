@@ -247,6 +247,9 @@
   #inspector .ibar-avg { position:absolute; top:-1px; width:1px; height:8px; background:#fff; border-radius:1px; opacity:0.7; }
   #inspector .ibar-avg::after { content:'avg'; position:absolute; top:-9px; left:50%; transform:translateX(-50%); font-size:6px; color:rgba(255,255,255,0.4); white-space:nowrap; display:none; }
   #inspector .ibar-row:hover .ibar-avg::after { display:block; }
+  #inspector .ibar-hist { position:absolute; top:-1px; width:1px; height:8px; background:#ffd700; border-radius:1px; opacity:0.7; }
+  #inspector .ibar-hist::after { content:'all'; position:absolute; top:-9px; left:50%; transform:translateX(-50%); font-size:6px; color:rgba(255,215,0,0.5); white-space:nowrap; display:none; }
+  #inspector .ibar-row:hover .ibar-hist::after { display:block; }
 </style>
 </head>
 <body>
@@ -2607,12 +2610,13 @@ function drawTrails(){
 // ── Void management ──
 function buildVoids(n){
   voids.forEach(v=>v.destroy()); voids=[];
-  for(let i=0;i<n;i++) voids.push(new Void());
+  _histReset();
+  for(let i=0;i<n;i++){ const v=new Void(); voids.push(v); _histAdd(v.dna); }
 }
 function onParamChange(key){
   if(key==='cube'){buildBox();buildAxes();if(P.evoMode||P.ecoMode)rebuildFood();if(P.ecoMode){buildGroundPlane();if(P.waterOn&&P.topoMode==='complex')buildWaterPlane();}}
   if(key==='boxThickness'||key==='boxOpacity') buildBox();
-  if(key==='count'&&!P.evoMode&&!P.ecoMode){const n=Math.round(P.count);while(voids.length<n)voids.push(new Void());while(voids.length>n){voids[voids.length-1].destroy();voids.pop();}}
+  if(key==='count'&&!P.evoMode&&!P.ecoMode){const n=Math.round(P.count);while(voids.length<n){const v=new Void();voids.push(v);_histAdd(v.dna);}while(voids.length>n){voids[voids.length-1].destroy();voids.pop();}}
   if(key==='aspect'){voids.forEach(v=>{const s={pos:v.pos.clone(),vel:v.vel.clone(),trail:v.trail.slice(),dna:v.dna,gen:v.gen,age:v.age,energy:v.energy,alive:v.alive};v._buildMesh();Object.assign(v,s);});}
   if((key==='groundFoodFrac'||key==='treeFoodFrac'||key==='skyFoodDrift'||key==='waterFoodFrac')&&P.ecoMode) rebuildFood();
   if((key==='waterLevel')&&P.ecoMode&&P.waterOn) { buildWaterPlane(); rebuildFood(); }
@@ -3606,12 +3610,25 @@ function tryInspect(clientX,clientY){
 function irow(label,val){ return `<div class="irow"><span class="ilabel">${label}</span><span class="ival">${val}</span></div>`; }
 function isep(){ return '<hr class="isep">'; }
 
+// Historical average: accumulates DNA of every boid that has ever existed
+const _histTraitKeys=['maxSpeed','flockSphere','visionRange','visionAngle','bodySize','turnRate',
+                      'separation','alignment','cohesion','lifespan','hue','passiveGain','huntDrive','fleeDrive','preferredAlt'];
+let _histSum={}, _histCount=0;
+function _histReset(){ _histSum={}; _histCount=0; for(const k of _histTraitKeys) _histSum[k]=0; }
+_histReset();
+function _histAdd(dna){ for(const k of _histTraitKeys) _histSum[k]+=(dna[k]||0); _histCount++; }
+function _computeHistAvg(){
+  const avg={};
+  if(!_histCount) return avg;
+  for(const k of _histTraitKeys) avg[k]=_histSum[k]/_histCount;
+  return avg;
+}
+
 function _computePopAvg(){
   const avg={};
   const n=voids.length;
   if(!n) return avg;
-  const keys=['maxSpeed','flockSphere','visionRange','visionAngle','bodySize','turnRate',
-              'separation','alignment','cohesion','lifespan','hue','passiveGain','huntDrive','fleeDrive','preferredAlt'];
+  const keys=_histTraitKeys;
   for(const k of keys) avg[k]=0;
   for(const v of voids){
     for(const k of keys) avg[k]+=(v.dna[k]||0);
@@ -3628,23 +3645,26 @@ const _traitBounds={
   passiveGain:[0,4.0], huntDrive:[0,3.0], fleeDrive:[0,3.0], preferredAlt:[-1,1]
 };
 
-function ibar(label, val, avg, traitKey, displayVal){
+function ibar(label, val, avg, traitKey, displayVal, histAvgVal){
   const [lo,hi]=_traitBounds[traitKey]||[0,1];
   const range=hi-lo||1;
   const pctVal=Math.max(0,Math.min(100,((val-lo)/range)*100));
   const pctAvg=Math.max(0,Math.min(100,((avg-lo)/range)*100));
+  const pctHist=histAvgVal!==undefined?Math.max(0,Math.min(100,((histAvgVal-lo)/range)*100)):null;
   const color=pctVal>=pctAvg?'rgba(40,212,255,0.6)':'rgba(255,160,60,0.6)';
+  const histLine=pctHist!==null?`<div class="ibar-hist" style="left:${pctHist}%"></div>`:'';
   return `<div class="ibar-row">
     <div class="ibar-label"><span class="ilabel">${label}</span><span class="ival">${displayVal}</span></div>
     <div class="ibar-track">
       <div class="ibar-fill" style="width:${pctVal}%;background:${color}"></div>
       <div class="ibar-avg" style="left:${pctAvg}%"></div>
+      ${histLine}
     </div>
   </div>`;
 }
 
-// Collapsible section state persists across inspector updates
-const _inspCollapsed = {};
+// Collapsible section state persists across inspector updates — closed by default
+const _inspCollapsed = {loco:true, perc:true, soc:true, eco:true, gen:true};
 function igroup(id, label){ return `<div class="igroup${_inspCollapsed[id]?' collapsed':''}" data-isec="${id}">${label}</div>`; }
 function isecOpen(id){ return `<div class="isection-body${_inspCollapsed[id]?' collapsed':''}" data-isec-body="${id}">`; }
 function isecClose(){ return `</div>`; }
@@ -3669,6 +3689,7 @@ function showInspector(v){
   const f=n=>n.toFixed(2);
   const isEco=P.ecoMode;
   const avg=_computePopAvg();
+  const hAvg=_computeHistAvg();
 
   let html=`
     ${irow('Name', v.name)}
@@ -3679,41 +3700,41 @@ function showInspector(v){
     ${isep()}
     ${igroup('loco','LOCOMOTION')}
     ${isecOpen('loco')}
-    ${ibar('Body Size',  d.bodySize,  avg.bodySize||0,  'bodySize',  f(d.bodySize))}
-    ${ibar('Max Speed',  d.maxSpeed,  avg.maxSpeed||0,  'maxSpeed',  f(d.maxSpeed))}
-    ${ibar('Turn Rate',  d.turnRate,  avg.turnRate||0,  'turnRate',  f(d.turnRate))}
+    ${ibar('Body Size',  d.bodySize,  avg.bodySize||0,  'bodySize',  f(d.bodySize),  hAvg.bodySize)}
+    ${ibar('Max Speed',  d.maxSpeed,  avg.maxSpeed||0,  'maxSpeed',  f(d.maxSpeed),  hAvg.maxSpeed)}
+    ${ibar('Turn Rate',  d.turnRate,  avg.turnRate||0,  'turnRate',  f(d.turnRate),  hAvg.turnRate)}
     ${isecClose()}
     ${isep()}
     ${igroup('perc','PERCEPTION')}
     ${isecOpen('perc')}
-    ${ibar('Flock Sphere', d.flockSphere, avg.flockSphere||0, 'flockSphere', f(d.flockSphere))}
-    ${ibar('Vision Range', d.visionRange, avg.visionRange||0, 'visionRange', f(d.visionRange))}
-    ${ibar('Vision Angle', d.visionAngle, avg.visionAngle||0, 'visionAngle', Math.round(d.visionAngle*(180/PI))+'°')}
+    ${ibar('Flock Sphere', d.flockSphere, avg.flockSphere||0, 'flockSphere', f(d.flockSphere), hAvg.flockSphere)}
+    ${ibar('Vision Range', d.visionRange, avg.visionRange||0, 'visionRange', f(d.visionRange), hAvg.visionRange)}
+    ${ibar('Vision Angle', d.visionAngle, avg.visionAngle||0, 'visionAngle', Math.round(d.visionAngle*(180/PI))+'°', hAvg.visionAngle)}
     ${isecClose()}
     ${isep()}
     ${igroup('soc','SOCIAL')}
     ${isecOpen('soc')}
-    ${ibar('Separation', d.separation, avg.separation||0, 'separation', f(d.separation))}
-    ${ibar('Alignment',  d.alignment,  avg.alignment||0,  'alignment',  f(d.alignment))}
-    ${ibar('Cohesion',   d.cohesion,   avg.cohesion||0,   'cohesion',   f(d.cohesion))}
+    ${ibar('Separation', d.separation, avg.separation||0, 'separation', f(d.separation), hAvg.separation)}
+    ${ibar('Alignment',  d.alignment,  avg.alignment||0,  'alignment',  f(d.alignment),  hAvg.alignment)}
+    ${ibar('Cohesion',   d.cohesion,   avg.cohesion||0,   'cohesion',   f(d.cohesion),   hAvg.cohesion)}
     ${isecClose()}`;
 
   if(isEco) html+=`
     ${isep()}
     ${igroup('eco','ECOLOGY')}
     ${isecOpen('eco')}
-    ${ibar('Passive Gain', d.passiveGain,  avg.passiveGain||0,  'passiveGain',  f(d.passiveGain))}
-    ${ibar('Hunt Drive',   d.huntDrive,    avg.huntDrive||0,    'huntDrive',    f(d.huntDrive))}
-    ${ibar('Flee Drive',   d.fleeDrive,    avg.fleeDrive||0,    'fleeDrive',    f(d.fleeDrive))}
-    ${ibar('Pref Altitude',d.preferredAlt, avg.preferredAlt||0, 'preferredAlt', f(d.preferredAlt))}
+    ${ibar('Passive Gain', d.passiveGain,  avg.passiveGain||0,  'passiveGain',  f(d.passiveGain),  hAvg.passiveGain)}
+    ${ibar('Hunt Drive',   d.huntDrive,    avg.huntDrive||0,    'huntDrive',    f(d.huntDrive),    hAvg.huntDrive)}
+    ${ibar('Flee Drive',   d.fleeDrive,    avg.fleeDrive||0,    'fleeDrive',    f(d.fleeDrive),    hAvg.fleeDrive)}
+    ${ibar('Pref Altitude',d.preferredAlt, avg.preferredAlt||0, 'preferredAlt', f(d.preferredAlt), hAvg.preferredAlt)}
     ${isecClose()}`;
 
   html+=`
     ${isep()}
     ${igroup('gen','GENETICS')}
     ${isecOpen('gen')}
-    ${ibar('Hue',      d.hue,      avg.hue||0,      'hue',      Math.round(d.hue*360)+'°')}
-    ${ibar('Lifespan', d.lifespan, avg.lifespan||0, 'lifespan', f(d.lifespan)+'s')}
+    ${ibar('Hue',      d.hue,      avg.hue||0,      'hue',      Math.round(d.hue*360)+'°', hAvg.hue)}
+    ${ibar('Lifespan', d.lifespan, avg.lifespan||0, 'lifespan', f(d.lifespan)+'s',         hAvg.lifespan)}
     ${isecClose()}`;
 
   document.getElementById('inspector-body').innerHTML=html;
@@ -3899,6 +3920,7 @@ function loop(t=0){
     for(const sp of toSpawn){
       const nb = new Void(sp.dna,sp.gen,sp.energy,sp.pos,sp.parentEid);
       voids.push(nb);
+      _histAdd(nb.dna);
       tallyAddBirth(nb);
       floaterSpawn(nb.pos, '⊕', '#44ff88');
     }
