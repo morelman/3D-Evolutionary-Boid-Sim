@@ -1326,6 +1326,97 @@ let trailGroup, boxHelper, axesGroup, bubbleGroup;
 let frameCount=0, fpsTime=0;
 let totalBirths=0, totalDeaths=0, maxGen=0;
 
+// ── Boid names ──
+const BOID_FIRST_NAMES = [
+  // Ancient civilizations
+  'Ahmose','Akhenaten','Amenhotep','Cleopatra','Hatshepsut','Imhotep','Nefertari','Nefertiti',
+  'Ramesses','Thutmose','Achilles','Agamemnon','Andromache','Antigone','Archimedes','Aristotle',
+  'Aspasia','Cassandra','Electra','Eurydice','Hector','Hypatia','Icarus','Leonidas',
+  'Medea','Odysseus','Penelope','Pericles','Sappho','Socrates','Theseus',
+  'Agrippina','Augustus','Cornelia','Hadrian','Livia','Lucretia','Nero','Octavia',
+  'Spartacus','Tiberius','Trajan',
+  // Norse & Germanic
+  'Astrid','Bjorn','Brynhild','Eirik','Freydis','Gudrun','Gunnar','Harald',
+  'Ingrid','Ivar','Leif','Ragnar','Sigrid','Sigurd','Thyra','Ulf',
+  // Celtic & Gaelic
+  'Aengus','Aisling','Boudica','Branwen','Brigid','Ciaran','Deirdre','Diarmuid',
+  'Fionn','Grainne','Maeve','Niamh','Oisin','Rhiannon',
+  // Medieval
+  'Adelaide','Beatrice','Blanche','Eleanor','Gawain','Guinevere','Heloise','Hildegard',
+  'Isolde','Lancelot','Matilda','Percival','Roland','Tristan',
+  // East Asian
+  'Akira','Chiyo','Hanako','Haruki','Hideo','Himiko','Hiroshi','Kaito',
+  'Kenji','Mei','Naoko','Ren','Riko','Sakura','Takeshi','Yuki','Yuto',
+  'Bao','Daiyu','Hua','Jing','Lan','Lian','Ming','Mulan','Wei','Xia','Yan','Zhen',
+  // South Asian
+  'Arjuna','Ashoka','Draupadi','Gargi','Karna','Krishna','Lakshmi','Padma',
+  'Priya','Radha','Ravi','Savitri','Siddhartha','Sita','Surya','Tara','Vikram',
+  // Middle Eastern & Persian
+  'Aisha','Cyrus','Darius','Esther','Fatima','Hafsa','Khadijah','Khalil',
+  'Layla','Maryam','Omar','Salome','Shirin','Yasmin','Zahra','Zenobia',
+  // African
+  'Amina','Ashanti','Imani','Jomo','Kamau','Kwame','Makeda','Nala',
+  'Nandi','Osei','Zara',
+  // Mesoamerican & South American
+  'Citlali','Inti','Ixchel','Nayeli','Quetzal','Tecuichpo','Xochitl',
+  // Polynesian & Oceanian
+  'Aroha','Hina','Koa','Leilani','Maui','Moana','Tane','Whina',
+  // Slavic & Eastern European
+  'Anastasia','Boris','Dmitri','Igor','Ivan','Katya','Mila','Nadia',
+  'Natasha','Olga','Sasha','Svetlana','Tatiana','Vladimir','Yuri',
+  // Modern era
+  'Ada','Amelia','Blaise','Frida','Nikola','Rosa','Rosalind',
+];
+
+const BOID_LAST_NAMES = [
+  // Ancient & Classical (family names, clan names, place-derived)
+  'Ptolemy','Aurelius','Flavius','Gracchus','Scipio','Maximus','Sulla','Varro',
+  'Crassus','Corvinus','Regulus','Vespasian','Galba','Nerva',
+  // Greek
+  'Phidias','Thales','Anaxagoras','Parmenides','Zeno','Epicurus','Strabo','Galen',
+  // Norse & Germanic
+  'Haraldsson','Sigurdsson','Eriksson','Lothbrok','Ironside','Fairhair','Bluetooth',
+  'Magnusson','Thorsson','Ulfsson','Halvdan','Ragnarsson',
+  // Celtic & Gaelic
+  'MacCool','MacLir','MacMorgan','OBrien','OConnor','MacBeth','Pendragon','Gallagher',
+  // Medieval & European surnames
+  'Plantagenet','Aquitaine','Lancaster','Montfort','Anjou','Valois','Capulet','Montague',
+  'Tudor','Medici','Borgia','Habsburg','Sforza','Visconti',
+  // East Asian
+  'Tokugawa','Minamoto','Ashikaga','Fujiwara','Taira','Oda','Toyotomi','Matsuo',
+  'Hokusai','Kurosawa','Mishima','Tanizaki','Kawabata',
+  'Zhuge','Sima','Zheng','Cao','Liu','Sun','Huang','Zhou','Tang','Song','Yuan',
+  // South Asian
+  'Gupta','Maurya','Chola','Pandya','Pallava','Mughal','Tagore','Bose',
+  'Nehru','Chandra','Sharma','Patel','Kapoor','Varma',
+  // Middle Eastern & Persian
+  'Khayyam','Hafez','Shirazi','Saadi','Ferdowsi','Khwarizmi','Rashid','Harun',
+  'Suleiman','Osman','Safavid','Ayyubi','Abbasi',
+  // African
+  'Keita','Toure','Diallo','Diop','Mandela','Kenyatta','Nkrumah','Lumumba',
+  'Zulu','Ashanti','Mansa','Songhai',
+  // Mesoamerican & South American
+  'Coatl','Tlatoani','Popoca','Coyol','Itzel','Balam','Pakal','Itzamna',
+  // Renaissance & Enlightenment (surnames)
+  'Copernicus','Descartes','Fibonacci','Galilei','Kepler','Machiavelli','Montaigne',
+  'Newton','Spinoza','Vermeer','Voltaire','Caravaggio','Bernini','Vivaldi',
+  // Polynesian & Oceanian
+  'Tupua','Matai','Ariki','Rangi','Whenua','Moananui','Kahawai',
+  // Slavic & Eastern European
+  'Volkov','Petrov','Kuznetsov','Ivanov','Romanov','Dostoevsky','Tolstoy','Chekhov',
+  'Pushkin','Gogol','Turgenev','Pavlov','Mendeleev',
+  // Modern era (scientists, artists, thinkers)
+  'Curie','Darwin','Edison','Faraday','Herschel','Hubble','Lovelace','Marconi',
+  'Noether','Planck','Turing','Tesla','Pasteur','Fourier','Laplace','Euler',
+  'Gauss','Riemann','Bohr','Fermi','Feynman','Hawking','Goodall','Earhart',
+];
+
+function randomBoidName(){
+  const first = BOID_FIRST_NAMES[Math.floor(Math.random()*BOID_FIRST_NAMES.length)];
+  const last  = BOID_LAST_NAMES[Math.floor(Math.random()*BOID_LAST_NAMES.length)];
+  return first+' '+last;
+}
+
 // ── Lineage tracking ──
 let lineageStore = new Map(); // eid → node
 let nextEid = 0;
@@ -1336,6 +1427,7 @@ let _treeLayoutDirty = true; // set true whenever lineageStore changes
 function lineageRegister(boid, parentEid){
   const node = {
     eid: boid.eid,
+    name: boid.name,
     parentEid: parentEid,
     gen: boid.gen,
     bornAt: simTime,
@@ -1966,6 +2058,7 @@ function nicheGlow(dna){
 class Void {
   constructor(dna=null, parentGen=0, startEnergy=null, startPos=null, parentEid=null){
     this.eid  = nextEid++;
+    this.name = randomBoidName();
     this.dna  = dna||makeSeedDNA();
     this.gen  = parentGen;
     this.age  = 0;
@@ -3024,7 +3117,7 @@ function setupTreeInteraction(){
       const f=n=>(n||0).toFixed(2);
       const age = nd.diedAt!=null ? (nd.diedAt-nd.bornAt).toFixed(1)+'s' : (simTime-nd.bornAt).toFixed(1)+'s (living)';
       tt.innerHTML=`
-        <b style="color:#fff">Gen ${nd.gen} · EID ${nd.eid}</b><br>
+        <b style="color:#fff">${nd.name||'?'} · Gen ${nd.gen} · EID ${nd.eid}</b><br>
         Status: ${nd.living?'<span style="color:#44ff88">living</span>':'<span style="color:#ff6666">dead ('+nd.causeOfDeath+')</span>'}<br>
         Age: ${age}<br>
         Children: ${nd.childEids.length} · Desc: ${_countDesc(nd.eid)}<br>
@@ -3576,6 +3669,7 @@ function showInspector(v){
   const avg=_computePopAvg();
 
   let html=`
+    ${irow('Name', v.name)}
     ${irow('Type', boidModel(d))}
     ${irow('Generation', v.gen)}
     ${irow('Age', f(v.age)+'s / '+f(d.lifespan)+'s')}
