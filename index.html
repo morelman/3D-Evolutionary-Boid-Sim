@@ -723,6 +723,7 @@
       </div>
     </div>
     <button class="toggle-btn perc-btn" id="btn-perc">PERCEPTION BUBBLES</button>
+    <button class="toggle-btn active" id="btn-lifemeters">LIFE METERS</button>
     <button class="toggle-btn" id="btn-energycolor">ENERGY COLOR</button>
     <button class="toggle-btn" id="btn-rotate">AUTO ROTATE</button>
   </div>
@@ -779,7 +780,7 @@ const P = {
   cube:32, trail:25, trailfade:0.4,
   boxColor:'#1a4a5a', boxThickness:0.05, boxOpacity:0.45,
   showBox:true, showAxes:true, showTrails:true, showFog:false,
-  showPerc:false, energyColor:false, autoRotate:false, bgColor:'#050508', boundMode:'bounce',
+  showPerc:false, showLifeMeters:true, energyColor:false, autoRotate:false, bgColor:'#050508', boundMode:'bounce',
   paused:false,
   // Evolution
   evoMode:false, showChart:false,
@@ -876,6 +877,7 @@ document.getElementById('r-bgColor').addEventListener('input',function(){
   if(P.showFog) scene.fog=new THREE.FogExp2(bg,0.012);
 });
 mkToggle('perc','showPerc',()=>{ if(bubbleGroup) bubbleGroup.visible=P.showPerc; });
+mkToggle('lifemeters','showLifeMeters');
 mkToggle('energycolor','energyColor', ()=>{ if(!P.energyColor) voids.forEach(v=>v.applyColor()); });
 mkToggle('rotate','autoRotate');
 document.getElementById('btn-agelimit').addEventListener('click',function(){
@@ -2447,12 +2449,12 @@ class Void {
 
     // ── Health bar (billboarded below boid) ──
     if(this._hbGroup){
-      if(isEvo2){
+      if(isEvo2 && P.showLifeMeters){
         const worldScale = P.size * bs;
         this._hbGroup.visible = true;
         // Position below the boid (offset downward in world Y)
-        this._hbGroup.position.set(this.pos.x, this.pos.y - worldScale * 0.35, this.pos.z);
-        this._hbGroup.scale.setScalar(worldScale * 0.9);
+        this._hbGroup.position.set(this.pos.x, this.pos.y - worldScale * 1.0, this.pos.z);
+        this._hbGroup.scale.setScalar(worldScale * 4.5);
         // Billboard: face the camera
         this._hbGroup.quaternion.copy(camera.quaternion);
         // Update fill
