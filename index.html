@@ -1327,69 +1327,94 @@ let frameCount=0, fpsTime=0;
 let totalBirths=0, totalDeaths=0, maxGen=0;
 
 // ── Boid names ──
-const BOID_NAMES = [
+const BOID_FIRST_NAMES = [
   // Ancient civilizations
-  'Aahotep','Ahmose','Akhenaten','Amenhotep','Ankhesenamun','Cleopatra','Hatshepsut','Imhotep',
-  'Khufu','Meritaten','Nefertari','Nefertiti','Ramesses','Thutmose','Tutankhamun',
-  'Achilles','Aeschylus','Agamemnon','Ajax','Andromache','Antigone','Archimedes','Aristophanes',
-  'Aristotle','Aspasia','Cassandra','Daedalus','Demosthenes','Diogenes','Electra','Euclid',
-  'Eurydice','Hector','Heraclitus','Herodotus','Hippocrates','Homer','Hypatia','Icarus',
-  'Iphigenia','Leonidas','Medea','Odysseus','Penelope','Pericles','Plato','Pythagoras',
-  'Sappho','Socrates','Solon','Themistocles','Theseus','Xenophon',
-  'Agrippina','Antony','Augustus','Aurelius','Brutus','Caligula','Cassius','Cato',
-  'Cicero','Claudius','Commodus','Cornelia','Diocletian','Hadrian','Horace','Julianus',
-  'Julius','Justinian','Livia','Lucretia','Nero','Octavia','Ovid','Pliny',
-  'Pompey','Romulus','Seneca','Severus','Spartacus','Tiberius','Trajan','Virgil',
+  'Ahmose','Akhenaten','Amenhotep','Cleopatra','Hatshepsut','Imhotep','Nefertari','Nefertiti',
+  'Ramesses','Thutmose','Achilles','Agamemnon','Andromache','Antigone','Archimedes','Aristotle',
+  'Aspasia','Cassandra','Electra','Eurydice','Hector','Hypatia','Icarus','Leonidas',
+  'Medea','Odysseus','Penelope','Pericles','Sappho','Socrates','Theseus',
+  'Agrippina','Augustus','Cornelia','Hadrian','Livia','Lucretia','Nero','Octavia',
+  'Spartacus','Tiberius','Trajan',
   // Norse & Germanic
   'Astrid','Bjorn','Brynhild','Eirik','Freydis','Gudrun','Gunnar','Harald',
-  'Ingrid','Ivar','Leif','Loki','Odin','Ragnar','Sigrid','Sigurd',
-  'Sif','Thorstein','Thyra','Ulf',
+  'Ingrid','Ivar','Leif','Ragnar','Sigrid','Sigurd','Thyra','Ulf',
   // Celtic & Gaelic
-  'Aengus','Aisling','Boudica','Branwen','Brigid','Caradoc','Ciaran','Deirdre',
-  'Diarmuid','Fionn','Grainne','Maeve','Niamh','Oisin','Rhiannon','Taliesin',
+  'Aengus','Aisling','Boudica','Branwen','Brigid','Ciaran','Deirdre','Diarmuid',
+  'Fionn','Grainne','Maeve','Niamh','Oisin','Rhiannon',
   // Medieval
-  'Adelaide','Abelard','Baldwin','Beatrice','Blanche','Charlemagne','Eleanor','Gawain',
-  'Giselle','Godfrey','Guinevere','Heloise','Hildegard','Isolde','Lancelot','Matilda',
-  'Percival','Roland','Saladin','Tristan',
+  'Adelaide','Beatrice','Blanche','Eleanor','Gawain','Guinevere','Heloise','Hildegard',
+  'Isolde','Lancelot','Matilda','Percival','Roland','Tristan',
   // East Asian
-  'Akira','Chiyo','Genghis','Hanako','Haruki','Hideo','Himiko','Hiroshi',
-  'Kaito','Kenji','Kublai','Mei','Murasaki','Naoko','Nobunaga','Ren',
-  'Riko','Sakura','Takeshi','Yuki','Yuto',
-  'Bao','Chen','Confucius','Daiyu','Fang','Hua','Jing','Kong',
-  'Lan','Lao','Li','Lian','Mei','Ming','Mulan','Ping',
-  'Qin','Shan','Wei','Xia','Yan','Zhen','Zhu',
+  'Akira','Chiyo','Hanako','Haruki','Hideo','Himiko','Hiroshi','Kaito',
+  'Kenji','Mei','Naoko','Ren','Riko','Sakura','Takeshi','Yuki','Yuto',
+  'Bao','Daiyu','Hua','Jing','Lan','Lian','Ming','Mulan','Wei','Xia','Yan','Zhen',
   // South Asian
-  'Arjuna','Ashoka','Chanakya','Draupadi','Gandhari','Gargi','Karna','Krishna',
-  'Lakshmi','Maitreyi','Padma','Priya','Radha','Ravi','Savitri','Siddhartha',
-  'Sita','Surya','Tara','Vikram',
+  'Arjuna','Ashoka','Draupadi','Gargi','Karna','Krishna','Lakshmi','Padma',
+  'Priya','Radha','Ravi','Savitri','Siddhartha','Sita','Surya','Tara','Vikram',
   // Middle Eastern & Persian
-  'Aisha','Avicenna','Cyrus','Darius','Esther','Fatima','Hafsa','Hatim',
-  'Khadijah','Khalil','Layla','Maryam','Omar','Rumi','Salome','Scheherazade',
-  'Shirin','Xerxes','Yasmin','Zahra','Zenobia',
+  'Aisha','Cyrus','Darius','Esther','Fatima','Hafsa','Khadijah','Khalil',
+  'Layla','Maryam','Omar','Salome','Shirin','Yasmin','Zahra','Zenobia',
   // African
-  'Amina','Anansi','Ashanti','Dido','Imani','Jomo','Kamau','Kenyatta',
-  'Kwame','Makeda','Mandela','Mansa','Nala','Nandi','Nzinga','Osei',
-  'Shaka','Sundiata','Tariq','Zara',
+  'Amina','Ashanti','Imani','Jomo','Kamau','Kwame','Makeda','Nala',
+  'Nandi','Osei','Zara',
   // Mesoamerican & South American
-  'Atahualpa','Citlali','Inti','Itzamna','Ixchel','Manco','Montezuma','Nayeli',
-  'Pacal','Quetzal','Tecuichpo','Tenoch','Tlaloc','Tupac','Xochitl',
-  // Renaissance & Enlightenment
-  'Artemisia','Copernicus','Dante','Descartes','Fibonacci','Galileo','Giotto','Kepler',
-  'Leonardo','Machiavelli','Michelangelo','Montaigne','Newton','Petrarch','Raphael','Spinoza',
-  'Vermeer','Voltaire',
+  'Citlali','Inti','Ixchel','Nayeli','Quetzal','Tecuichpo','Xochitl',
   // Polynesian & Oceanian
   'Aroha','Hina','Koa','Leilani','Maui','Moana','Tane','Whina',
   // Slavic & Eastern European
   'Anastasia','Boris','Dmitri','Igor','Ivan','Katya','Mila','Nadia',
   'Natasha','Olga','Sasha','Svetlana','Tatiana','Vladimir','Yuri',
-  // Modern era diverse
-  'Ada','Amelia','Blaise','Curie','Darwin','Edison','Elara','Faraday',
-  'Frida','Herschel','Hubble','Kepler','Lovelace','Marconi','Nikola','Noether',
-  'Planck','Rosa','Rosalind','Turing',
+  // Modern era
+  'Ada','Amelia','Blaise','Frida','Nikola','Rosa','Rosalind',
+];
+
+const BOID_LAST_NAMES = [
+  // Ancient & Classical (family names, clan names, place-derived)
+  'Ptolemy','Aurelius','Flavius','Gracchus','Scipio','Maximus','Sulla','Varro',
+  'Crassus','Corvinus','Regulus','Vespasian','Galba','Nerva',
+  // Greek
+  'Phidias','Thales','Anaxagoras','Parmenides','Zeno','Epicurus','Strabo','Galen',
+  // Norse & Germanic
+  'Haraldsson','Sigurdsson','Eriksson','Lothbrok','Ironside','Fairhair','Bluetooth',
+  'Magnusson','Thorsson','Ulfsson','Halvdan','Ragnarsson',
+  // Celtic & Gaelic
+  'MacCool','MacLir','MacMorgan','OBrien','OConnor','MacBeth','Pendragon','Gallagher',
+  // Medieval & European surnames
+  'Plantagenet','Aquitaine','Lancaster','Montfort','Anjou','Valois','Capulet','Montague',
+  'Tudor','Medici','Borgia','Habsburg','Sforza','Visconti',
+  // East Asian
+  'Tokugawa','Minamoto','Ashikaga','Fujiwara','Taira','Oda','Toyotomi','Matsuo',
+  'Hokusai','Kurosawa','Mishima','Tanizaki','Kawabata',
+  'Zhuge','Sima','Zheng','Cao','Liu','Sun','Huang','Zhou','Tang','Song','Yuan',
+  // South Asian
+  'Gupta','Maurya','Chola','Pandya','Pallava','Mughal','Tagore','Bose',
+  'Nehru','Chandra','Sharma','Patel','Kapoor','Varma',
+  // Middle Eastern & Persian
+  'Khayyam','Hafez','Shirazi','Saadi','Ferdowsi','Khwarizmi','Rashid','Harun',
+  'Suleiman','Osman','Safavid','Ayyubi','Abbasi',
+  // African
+  'Keita','Toure','Diallo','Diop','Mandela','Kenyatta','Nkrumah','Lumumba',
+  'Zulu','Ashanti','Mansa','Songhai',
+  // Mesoamerican & South American
+  'Coatl','Tlatoani','Popoca','Coyol','Itzel','Balam','Pakal','Itzamna',
+  // Renaissance & Enlightenment (surnames)
+  'Copernicus','Descartes','Fibonacci','Galilei','Kepler','Machiavelli','Montaigne',
+  'Newton','Spinoza','Vermeer','Voltaire','Caravaggio','Bernini','Vivaldi',
+  // Polynesian & Oceanian
+  'Tupua','Matai','Ariki','Rangi','Whenua','Moananui','Kahawai',
+  // Slavic & Eastern European
+  'Volkov','Petrov','Kuznetsov','Ivanov','Romanov','Dostoevsky','Tolstoy','Chekhov',
+  'Pushkin','Gogol','Turgenev','Pavlov','Mendeleev',
+  // Modern era (scientists, artists, thinkers)
+  'Curie','Darwin','Edison','Faraday','Herschel','Hubble','Lovelace','Marconi',
+  'Noether','Planck','Turing','Tesla','Pasteur','Fourier','Laplace','Euler',
+  'Gauss','Riemann','Bohr','Fermi','Feynman','Hawking','Goodall','Earhart',
 ];
 
 function randomBoidName(){
-  return BOID_NAMES[Math.floor(Math.random()*BOID_NAMES.length)];
+  const first = BOID_FIRST_NAMES[Math.floor(Math.random()*BOID_FIRST_NAMES.length)];
+  const last  = BOID_LAST_NAMES[Math.floor(Math.random()*BOID_LAST_NAMES.length)];
+  return first+' '+last;
 }
 
 // ── Lineage tracking ──
