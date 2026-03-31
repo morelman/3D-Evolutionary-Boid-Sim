@@ -267,7 +267,7 @@
 ">
   LMB · orbit &nbsp;|&nbsp; RMB/MMB · pan &nbsp;|&nbsp; scroll · zoom<br>
   WASD · move target &nbsp;|&nbsp; Q/E · up/down &nbsp;|&nbsp; Shift · sprint<br>
-  F · free-fly &nbsp;|&nbsp; dbl-click · reset pan
+  F · free-fly &nbsp;|&nbsp; dbl-click · reset pan &nbsp;|&nbsp; click boid · inspect
 </div>
 <div id="freecam-hint" style="
   display:none; position:fixed; left:50%; transform:translateX(-50%);
@@ -3467,6 +3467,7 @@ window.addEventListener('keydown', e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   _keys[e.code]=true;
   if(e.code==='KeyF') toggleFreecam();
+  if(e.code==='Escape' && _boidPOV){ _boidPOV=false; return; }
   if(e.code==='Escape' && freecam.active) exitFreecam();
   if(e.code==='Space' && !e.target.tagName) e.preventDefault();
 });
@@ -3482,6 +3483,9 @@ function orbitKeyMove(dt){
                   _keys['KeyQ']||_keys['KeyE']||_keys['ArrowUp']||_keys['ArrowDown']||
                   _keys['ArrowLeft']||_keys['ArrowRight'];
   if(!anyMove) return;
+
+  // Manual movement breaks boid follow
+  if(_boidFollow){ _boidFollow=false; _boidPOV=false; }
 
   const sprint = _keys['ShiftLeft']||_keys['ShiftRight'];
   const speed  = orbit.radius * (sprint ? 1.8 : 0.55) * dt;
@@ -3590,7 +3594,7 @@ function setupOrbit(){
   const stopAll   =(x,y)=>{
     if(orbit.dragging){
       const dx=x-orbit._downX, dy=y-orbit._downY;
-      if(Math.sqrt(dx*dx+dy*dy)<5 && P.paused) tryInspect(x,y);
+      if(Math.sqrt(dx*dx+dy*dy)<5) tryInspect(x,y);
     }
     orbit.dragging=false; orbit.panning=false;
   };
@@ -3626,7 +3630,7 @@ function setupOrbit(){
   });
   dom.addEventListener('dblclick',()=>{
     if(freecam.active) exitFreecam();
-    else { orbit.target.x=0; orbit.target.y=0; orbit.target.z=0; }
+    else { orbit.target.x=0; orbit.target.y=0; orbit.target.z=0; _boidFollow=false; _boidPOV=false; }
   });
 
   let _t2lx=0,_t2ly=0;
@@ -3645,12 +3649,16 @@ function setupOrbit(){
 let _raycaster, _mouse;
 let _selectedBoid = null;
 let _selectedHighlight = null; // wireframe mesh for selected boid
+let _boidFollow = false;       // orbit camera follows selected boid
+let _boidPOV = false;          // first-person view from boid's perspective
 
 function _buildHighlight(){
   if(_selectedHighlight){ scene.remove(_selectedHighlight); _selectedHighlight.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}); _selectedHighlight=null; }
 }
 function _clearSelection(){
   _selectedBoid=null;
+  _boidFollow=false;
+  _boidPOV=false;
   if(_selectedHighlight){ scene.remove(_selectedHighlight); _selectedHighlight.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}); _selectedHighlight=null; }
 }
 function _updateHighlight(){
@@ -3784,6 +3792,9 @@ function boidModel(dna){
 function showInspector(v){
   _clearSelection();
   _selectedBoid = v;
+  _boidFollow = true;
+  if(orbit.radius > 20) orbit.radius = 18;
+  if(freecam.active) exitFreecam();
   const d=v.dna;
   const pct=n=>Math.round(n*100)+'%';
   const f=n=>n.toFixed(2);
@@ -3792,6 +3803,10 @@ function showInspector(v){
   const hAvg=_computeHistAvg();
 
   let html=`
+    <div style="display:flex;gap:4px;margin-bottom:8px;">
+      <button id="btn-boid-pov" style="flex:1;padding:4px 0;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;background:rgba(80,200,255,0.12);border:1px solid rgba(80,200,255,0.35);border-radius:4px;color:#44ccff;cursor:pointer;">👁 BOID POV</button>
+      <button id="btn-boid-unfollow" style="flex:1;padding:4px 0;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;background:rgba(255,160,60,0.12);border:1px solid rgba(255,160,60,0.35);border-radius:4px;color:#ffa03c;cursor:pointer;">✕ UNFOLLOW</button>
+    </div>
     ${irow('Name', v.name)}
     ${irow('Type', boidModel(d))}
     ${irow('Generation', v.gen)}
@@ -3933,9 +3948,106 @@ document.getElementById('inspector-close').addEventListener('click',()=>{
   _ipClearModel();
   _clearSelection();
 });
+
+// Inspector button handlers (event delegation since buttons are dynamic)
+document.getElementById('inspector-body').addEventListener('click',e=>{
+  if(e.target.id==='btn-boid-pov'){
+    if(!_selectedBoid||!_selectedBoid.alive) return;
+    _boidPOV=!_boidPOV;
+    _boidFollow=true;
+    e.target.textContent=_boidPOV?'⬅ EXIT POV':'👁 BOID POV';
+    e.target.style.background=_boidPOV?'rgba(255,60,60,0.18)':'rgba(80,200,255,0.12)';
+    e.target.style.borderColor=_boidPOV?'rgba(255,60,60,0.5)':'rgba(80,200,255,0.35)';
+    e.target.style.color=_boidPOV?'#ff5555':'#44ccff';
+    if(freecam.active) exitFreecam();
+  }
+  if(e.target.id==='btn-boid-unfollow'){
+    _boidFollow=false;
+    _boidPOV=false;
+    const povBtn=document.getElementById('btn-boid-pov');
+    if(povBtn){ povBtn.textContent='👁 BOID POV'; povBtn.style.background='rgba(80,200,255,0.12)'; povBtn.style.borderColor='rgba(80,200,255,0.35)'; povBtn.style.color='#44ccff'; }
+  }
+});
+function _refreshInspectorData(v){
+  if(!v||!v.alive) return;
+  const d=v.dna, f=n=>n.toFixed(2), pct=n=>Math.round(n*100)+'%';
+  const isEco=P.ecoMode, avg=_computePopAvg(), hAvg=_computeHistAvg();
+  let html=`
+    <div style="display:flex;gap:4px;margin-bottom:8px;">
+      <button id="btn-boid-pov" style="flex:1;padding:4px 0;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;background:${_boidPOV?'rgba(255,60,60,0.18)':'rgba(80,200,255,0.12)'};border:1px solid ${_boidPOV?'rgba(255,60,60,0.5)':'rgba(80,200,255,0.35)'};border-radius:4px;color:${_boidPOV?'#ff5555':'#44ccff'};cursor:pointer;">${_boidPOV?'⬅ EXIT POV':'👁 BOID POV'}</button>
+      <button id="btn-boid-unfollow" style="flex:1;padding:4px 0;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;background:rgba(255,160,60,0.12);border:1px solid rgba(255,160,60,0.35);border-radius:4px;color:#ffa03c;cursor:pointer;">✕ UNFOLLOW</button>
+    </div>
+    ${irow('Name', v.name)}
+    ${irow('Type', boidModel(d))}
+    ${irow('Generation', v.gen)}
+    ${irow('Age', f(v.age)+'s / '+f(d.lifespan)+'s')}
+    ${irow('Energy', f(v.energy)+' / '+f(v.maxEnergy)+' ('+pct(v.energy/v.maxEnergy)+')')}
+    ${isep()}
+    ${igroup('loco','LOCOMOTION')}
+    ${isecOpen('loco')}
+    ${ibar('Body Size',d.bodySize,avg.bodySize||0,'bodySize',f(d.bodySize),hAvg.bodySize)}
+    ${ibar('Max Speed',d.maxSpeed,avg.maxSpeed||0,'maxSpeed',f(d.maxSpeed),hAvg.maxSpeed)}
+    ${ibar('Turn Rate',d.turnRate,avg.turnRate||0,'turnRate',f(d.turnRate),hAvg.turnRate)}
+    ${isecClose()}
+    ${isep()}
+    ${igroup('perc','PERCEPTION')}
+    ${isecOpen('perc')}
+    ${ibar('Flock Sphere',d.flockSphere,avg.flockSphere||0,'flockSphere',f(d.flockSphere),hAvg.flockSphere)}
+    ${ibar('Vision Range',d.visionRange,avg.visionRange||0,'visionRange',f(d.visionRange),hAvg.visionRange)}
+    ${ibar('Vision Angle',d.visionAngle,avg.visionAngle||0,'visionAngle',Math.round(d.visionAngle*(180/PI))+'°',hAvg.visionAngle)}
+    ${isecClose()}
+    ${isep()}
+    ${igroup('soc','SOCIAL')}
+    ${isecOpen('soc')}
+    ${ibar('Separation',d.separation,avg.separation||0,'separation',f(d.separation),hAvg.separation)}
+    ${ibar('Alignment',d.alignment,avg.alignment||0,'alignment',f(d.alignment),hAvg.alignment)}
+    ${ibar('Cohesion',d.cohesion,avg.cohesion||0,'cohesion',f(d.cohesion),hAvg.cohesion)}
+    ${isecClose()}`;
+  if(isEco) html+=`
+    ${isep()}
+    ${igroup('eco','ECOLOGY')}
+    ${isecOpen('eco')}
+    ${ibar('Passive Gain',d.passiveGain,avg.passiveGain||0,'passiveGain',f(d.passiveGain),hAvg.passiveGain)}
+    ${ibar('Hunt Drive',d.huntDrive,avg.huntDrive||0,'huntDrive',f(d.huntDrive),hAvg.huntDrive)}
+    ${ibar('Flee Drive',d.fleeDrive,avg.fleeDrive||0,'fleeDrive',f(d.fleeDrive),hAvg.fleeDrive)}
+    ${ibar('Pref Altitude',d.preferredAlt,avg.preferredAlt||0,'preferredAlt',f(d.preferredAlt),hAvg.preferredAlt)}
+    ${isecClose()}`;
+  html+=`
+    ${isep()}
+    ${igroup('gen','GENETICS')}
+    ${isecOpen('gen')}
+    ${ibar('Hue',d.hue,avg.hue||0,'hue',Math.round(d.hue*360)+'°',hAvg.hue)}
+    ${ibar('Lifespan',d.lifespan,avg.lifespan||0,'lifespan',f(d.lifespan)+'s',hAvg.lifespan)}
+    ${isecClose()}`;
+  document.getElementById('inspector-body').innerHTML=html;
+}
+
 function updateCamera(dt){
   orbitKeyMove(dt);
   freecamTick(dt);
+
+  // Follow selected boid: smoothly track orbit target to boid position
+  if(_boidFollow && _selectedBoid && _selectedBoid.alive && !freecam.active){
+    const bp = _selectedBoid.pos;
+    const lerp = Math.min(1, 8 * dt);
+    orbit.target.x += (bp.x - orbit.target.x) * lerp;
+    orbit.target.y += (bp.y - orbit.target.y) * lerp;
+    orbit.target.z += (bp.z - orbit.target.z) * lerp;
+  }
+
+  // Boid POV: position camera at boid, look in boid's direction
+  if(_boidPOV && _selectedBoid && _selectedBoid.alive){
+    const v = _selectedBoid;
+    const spd = v.vel.length();
+    const dir = spd > 0.001 ? v.vel.clone().normalize() : new THREE.Vector3(0,0,1);
+    const bs = (P.evoMode||P.ecoMode) ? v.dna.bodySize : 1.0;
+    const offset = 0.5 * P.size * bs;
+    camera.position.set(v.pos.x + dir.x*offset, v.pos.y + dir.y*offset + 0.3*P.size*bs, v.pos.z + dir.z*offset);
+    const lookTarget = new THREE.Vector3(v.pos.x + dir.x*10, v.pos.y + dir.y*10, v.pos.z + dir.z*10);
+    camera.lookAt(lookTarget);
+    return;
+  }
+
   if(freecam.active){
     const p=freecam.pos, yaw=freecam.yaw, pitch=freecam.pitch;
     camera.position.set(p.x, p.y, p.z);
@@ -4063,6 +4175,10 @@ function loop(t=0){
       document.getElementById('s-afood').textContent =P.visionAngle.toFixed(0)+'°';
     }
     frameCount=0; fpsTime=0;
+    // Live-refresh inspector data while sim runs
+    if(_selectedBoid && _selectedBoid.alive && document.getElementById('inspector').classList.contains('visible')){
+      _refreshInspectorData(_selectedBoid);
+    }
   }
   _updateHighlight();
   renderer.render(scene,camera);
