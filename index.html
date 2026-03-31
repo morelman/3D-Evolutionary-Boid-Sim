@@ -282,7 +282,7 @@
   position:fixed; left:14px; bottom:14px; z-index:8;
   font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(200,232,240,0.28);
   letter-spacing:0.5px; pointer-events:none;
-">v0.15.3</div>
+">v0.16.0</div>
 
 <div id="vector-key-overlay" style="
   display:none; position:fixed; left:14px; top:14px; z-index:10;
@@ -4041,8 +4041,8 @@ function updateCamera(dt){
     const spd = v.vel.length();
     const dir = spd > 0.001 ? v.vel.clone().normalize() : new THREE.Vector3(0,0,1);
     const bs = (P.evoMode||P.ecoMode) ? v.dna.bodySize : 1.0;
-    const offset = 0.5 * P.size * bs;
-    camera.position.set(v.pos.x + dir.x*offset, v.pos.y + dir.y*offset + 0.3*P.size*bs, v.pos.z + dir.z*offset);
+    const offset = 1.8 * P.size * bs;
+    camera.position.set(v.pos.x + dir.x*offset, v.pos.y + dir.y*offset + 0.08*P.size*bs, v.pos.z + dir.z*offset);
     const lookTarget = new THREE.Vector3(v.pos.x + dir.x*10, v.pos.y + dir.y*10, v.pos.z + dir.z*10);
     camera.lookAt(lookTarget);
     return;
