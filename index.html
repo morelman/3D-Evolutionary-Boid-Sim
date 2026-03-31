@@ -282,7 +282,27 @@
   position:fixed; left:14px; bottom:14px; z-index:8;
   font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(200,232,240,0.28);
   letter-spacing:0.5px; pointer-events:none;
-">v0.15.2</div>
+">v0.15.3</div>
+
+<div id="vector-key-overlay" style="
+  display:none; position:fixed; left:14px; top:14px; z-index:10;
+  background:rgba(0,0,0,0.72); border:1px solid rgba(80,200,255,0.25);
+  border-radius:6px; padding:10px 14px; pointer-events:none;
+  font-family:'Share Tech Mono',monospace; font-size:10px; color:#cceeff;
+  letter-spacing:0.5px; line-height:1.7;
+">
+  <div style="font-size:9px;color:#44ccff;letter-spacing:2px;margin-bottom:6px;">FORCE VECTORS</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#ff4444;vertical-align:middle;margin-right:8px;"></span>Separation</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#44ff44;vertical-align:middle;margin-right:8px;"></span>Alignment</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#4488ff;vertical-align:middle;margin-right:8px;"></span>Cohesion</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#ffff44;vertical-align:middle;margin-right:8px;"></span>Gravity</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#ff8800;vertical-align:middle;margin-right:8px;"></span>Food</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#ff2222;vertical-align:middle;margin-right:8px;"></span>Hunt</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#22ffff;vertical-align:middle;margin-right:8px;"></span>Flee</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#aa44ff;vertical-align:middle;margin-right:8px;"></span>Altitude</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#ff44ff;vertical-align:middle;margin-right:8px;"></span>Vortex</div>
+  <div><span style="display:inline-block;width:22px;height:2px;background:#ffffff;vertical-align:middle;margin-right:8px;"></span>Velocity</div>
+</div>
 <div id="toggle-panel">◀ CTRL</div>
 
 <div id="chart-overlay">
@@ -886,7 +906,7 @@ document.getElementById('r-bgColor').addEventListener('input',function(){
   if(P.showFog) scene.fog=new THREE.FogExp2(bg,0.012);
 });
 mkToggle('perc','showPerc',()=>{ if(bubbleGroup) bubbleGroup.visible=P.showPerc; });
-mkToggle('forces','showForces',()=>{ if(forceGroup) forceGroup.visible=P.showForces; });
+mkToggle('forces','showForces',()=>{ if(forceGroup) forceGroup.visible=P.showForces; document.getElementById('vector-key-overlay').style.display=P.showForces?'block':'none'; });
 mkToggle('lifemeters','showLifeMeters');
 mkToggle('energycolor','energyColor', ()=>{ if(!P.energyColor) voids.forEach(v=>v.applyColor()); });
 mkToggle('rotate','autoRotate');
