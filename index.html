@@ -731,6 +731,7 @@
       </div>
     </div>
     <button class="toggle-btn perc-btn" id="btn-perc">PERCEPTION BUBBLES</button>
+    <button class="toggle-btn" id="btn-forces">FORCE VECTORS</button>
     <button class="toggle-btn active" id="btn-lifemeters">LIFE METERS</button>
     <button class="toggle-btn" id="btn-energycolor">ENERGY COLOR</button>
     <button class="toggle-btn" id="btn-rotate">AUTO ROTATE</button>
@@ -788,7 +789,7 @@ const P = {
   cube:32, trail:25, trailfade:0.4,
   boxColor:'#1a4a5a', boxThickness:0.05, boxOpacity:0.45,
   showBox:true, showAxes:true, showTrails:true, showFog:false,
-  showPerc:false, showLifeMeters:true, energyColor:false, autoRotate:false, bgColor:'#050508', boundMode:'bounce',
+  showPerc:false, showLifeMeters:true, energyColor:false, showForces:false, autoRotate:false, bgColor:'#050508', boundMode:'bounce',
   paused:false,
   // Evolution
   evoMode:false, showChart:false,
@@ -885,6 +886,7 @@ document.getElementById('r-bgColor').addEventListener('input',function(){
   if(P.showFog) scene.fog=new THREE.FogExp2(bg,0.012);
 });
 mkToggle('perc','showPerc',()=>{ if(bubbleGroup) bubbleGroup.visible=P.showPerc; });
+mkToggle('forces','showForces',()=>{ if(forceGroup) forceGroup.visible=P.showForces; });
 mkToggle('lifemeters','showLifeMeters');
 mkToggle('energycolor','energyColor', ()=>{ if(!P.energyColor) voids.forEach(v=>v.applyColor()); });
 mkToggle('rotate','autoRotate');
@@ -1332,7 +1334,7 @@ document.getElementById('r-boxColor').addEventListener('input', function(){
 // ── Three.js globals ──
 let scene, camera, renderer;
 let voids=[], toSpawn=[];
-let trailGroup, boxHelper, axesGroup, bubbleGroup;
+let trailGroup, boxHelper, axesGroup, bubbleGroup, forceGroup;
 let frameCount=0, fpsTime=0;
 let totalBirths=0, totalDeaths=0, maxGen=0;
 
@@ -2103,6 +2105,12 @@ class Void {
     this.vel = new THREE.Vector3((Math.random()-0.5)*sp,(Math.random()-0.5)*sp,(Math.random()-0.5)*sp);
     this.trail=[];
     this.prevVelDir=new THREE.Vector3(0,1,0); // tracks direction last frame for angular rate
+    // Force vectors for visualization (accumulated each frame)
+    this.forces={
+      separation:{x:0,y:0,z:0}, alignment:{x:0,y:0,z:0}, cohesion:{x:0,y:0,z:0},
+      gravity:{x:0,y:0,z:0}, food:{x:0,y:0,z:0}, hunt:{x:0,y:0,z:0}, flee:{x:0,y:0,z:0},
+      altitude:{x:0,y:0,z:0}, vortex:{x:0,y:0,z:0},
+    };
     this.group=null; this.mat=null; this.glowMat=null; this.glowMesh=null;
     // Perception bubble meshes
     this.bubSphere=null; this.bubCone=null;
@@ -2293,7 +2301,9 @@ class Void {
 
       if(P.ecoMode){
         // Gravity (eco uses its own gravity knob)
-        this.vel.y -= P.ecoGrav * dt * 15; // slider 0-1 maps to 0-15 units/s²
+        const ecoGf = -P.ecoGrav * dt * 15; // slider 0-1 maps to 0-15 units/s²
+        this.vel.y += ecoGf;
+        this.forces.gravity.y = ecoGf;
       }
 
       this.energy -= drain;
@@ -2318,7 +2328,7 @@ class Void {
           // Stationary boids use full sphere; moving boids use directional cone
           const inCone = !moving || (dx/dist)*fwdX+(dy/dist)*fwdY+(dz/dist)*fwdZ > cosVA;
           if(inCone && !terrainBlocksLOS(this.pos.x,this.pos.y,this.pos.z, foodActive[fi*3],foodActive[fi*3+1],foodActive[fi*3+2])){
-            if(moving){ this.vel.x+=dx/dist*0.4; this.vel.y+=dy/dist*0.4; this.vel.z+=dz/dist*0.4; }
+            if(moving){ const ffx=dx/dist*0.4,ffy=dy/dist*0.4,ffz=dz/dist*0.4; this.vel.x+=ffx; this.vel.y+=ffy; this.vel.z+=ffz; this.forces.food.x+=ffx; this.forces.food.y+=ffy; this.forces.food.z+=ffz; }
             const eatR=(P.size*this.dna.bodySize)*1.5;
             if(d2<eatR*eatR){
               this.energy=Math.min(this.maxEnergy, this.energy+foodEnergy[fi]);
@@ -2374,20 +2384,28 @@ class Void {
         ? localGround
         : localGround + Math.max(0, this.dna.preferredAlt) * h * 0.85;
       const yErr = targetY - this.pos.y;
-      this.vel.y += yErr * 0.015 * dt * 60;
+      const altF = yErr * 0.015 * dt * 60;
+      this.vel.y += altF;
+      this.forces.altitude.y = altF;
     }
 
     // ── Physics ──
     if(!P.ecoMode){
       // Standard gravity (non-eco uses P.grav)
-      this.vel.y -= P.grav * dt;
+      const gf = -P.grav * dt;
+      this.vel.y += gf;
+      this.forces.gravity.y = gf;
     }
     this.vel.x+=(Math.random()-0.5)*P.chaos*dt;
     this.vel.y+=(Math.random()-0.5)*P.chaos*dt;
     this.vel.z+=(Math.random()-0.5)*P.chaos*dt;
     if(P.vortex!==0){
       const rx=this.pos.x,rz=this.pos.z,r=Math.sqrt(rx*rx+rz*rz);
-      if(r>0.01){this.vel.x+=(-rz/r)*P.vortex*dt; this.vel.z+=(rx/r)*P.vortex*dt;}
+      if(r>0.01){
+        const vfx=(-rz/r)*P.vortex*dt, vfz=(rx/r)*P.vortex*dt;
+        this.vel.x+=vfx; this.vel.z+=vfz;
+        this.forces.vortex.x=vfx; this.forces.vortex.z=vfz;
+      }
     }
     this.vel.multiplyScalar(P.damp);
 
@@ -2554,7 +2572,9 @@ function applyBoidRules(dt){
         if(P.predOn && predLOS && bi.dna.huntDrive>0.1 && biSz >= bjSz * P.predRatio){
           // Steer toward prey
           const huntStr=bi.dna.huntDrive*0.012*dt*60;
-          bi.vel.x+=dx/dist*huntStr; bi.vel.y+=dy/dist*huntStr; bi.vel.z+=dz/dist*huntStr;
+          const hfx=dx/dist*huntStr,hfy=dy/dist*huntStr,hfz=dz/dist*huntStr;
+          bi.vel.x+=hfx; bi.vel.y+=hfy; bi.vel.z+=hfz;
+          bi.forces.hunt.x+=hfx; bi.forces.hunt.y+=hfy; bi.forces.hunt.z+=hfz;
           // Eat if within combined radii
           const eatR=(biSz+bjSz)*P.size*0.9;
           if(d2<eatR*eatR && bi.energy<bi.maxEnergy*0.95){
@@ -2574,7 +2594,9 @@ function applyBoidRules(dt){
           const bjPassPenalty = 1.0 + bjPg * 0.5 + bjPg * bjPg * 0.22;
           const bjMaxS = (bj.dna.maxSpeed||1) / bjPassPenalty;
           const fleeStr = bj.dna.fleeDrive * 0.015 * dt * 60 * Math.min(1.0, bjMaxS) / bjPassPenalty;
-          bj.vel.x-=dx/dist*fleeStr; bj.vel.y-=dy/dist*fleeStr; bj.vel.z-=dz/dist*fleeStr;
+          const ffx=-dx/dist*fleeStr,ffy=-dy/dist*fleeStr,ffz=-dz/dist*fleeStr;
+          bj.vel.x+=ffx; bj.vel.y+=ffy; bj.vel.z+=ffz;
+          bj.forces.flee.x+=ffx; bj.forces.flee.y+=ffy; bj.forces.flee.z+=ffz;
         }
       }
     }
@@ -2589,10 +2611,22 @@ function applyBoidRules(dt){
     const cohW=isEvo?bi.dna.cohesion:P.cohesion;
     const tr  =isEvo?bi.dna.turnRate  :1.0;
 
-    if(sc>0){const s=sepW*str*tr/sc; bi.vel.x+=_sep.x*s;bi.vel.y+=_sep.y*s;bi.vel.z+=_sep.z*s;}
-    if(ac>0){const s=aliW*str*tr*0.1/ac; bi.vel.x+=(_ali.x-bi.vel.x)*s;bi.vel.y+=(_ali.y-bi.vel.y)*s;bi.vel.z+=(_ali.z-bi.vel.z)*s;}
-    if(cc>0){const s=cohW*str*tr*0.003;
-      bi.vel.x+=(_coh.x/cc-bi.pos.x)*s;bi.vel.y+=(_coh.y/cc-bi.pos.y)*s;bi.vel.z+=(_coh.z/cc-bi.pos.z)*s;}
+    // Reset per-frame forces
+    const f=bi.forces;
+    f.separation.x=0;f.separation.y=0;f.separation.z=0;
+    f.alignment.x=0;f.alignment.y=0;f.alignment.z=0;
+    f.cohesion.x=0;f.cohesion.y=0;f.cohesion.z=0;
+    f.gravity.x=0;f.gravity.y=0;f.gravity.z=0;
+    f.food.x=0;f.food.y=0;f.food.z=0;
+    f.hunt.x=0;f.hunt.y=0;f.hunt.z=0;
+    f.flee.x=0;f.flee.y=0;f.flee.z=0;
+    f.altitude.x=0;f.altitude.y=0;f.altitude.z=0;
+    f.vortex.x=0;f.vortex.y=0;f.vortex.z=0;
+
+    if(sc>0){const s=sepW*str*tr/sc; const fx=_sep.x*s,fy=_sep.y*s,fz=_sep.z*s; bi.vel.x+=fx;bi.vel.y+=fy;bi.vel.z+=fz; f.separation.x=fx;f.separation.y=fy;f.separation.z=fz;}
+    if(ac>0){const s=aliW*str*tr*0.1/ac; const fx=(_ali.x-bi.vel.x)*s,fy=(_ali.y-bi.vel.y)*s,fz=(_ali.z-bi.vel.z)*s; bi.vel.x+=fx;bi.vel.y+=fy;bi.vel.z+=fz; f.alignment.x=fx;f.alignment.y=fy;f.alignment.z=fz;}
+    if(cc>0){const s=cohW*str*tr*0.003; const fx=(_coh.x/cc-bi.pos.x)*s,fy=(_coh.y/cc-bi.pos.y)*s,fz=(_coh.z/cc-bi.pos.z)*s;
+      bi.vel.x+=fx;bi.vel.y+=fy;bi.vel.z+=fz; f.cohesion.x=fx;f.cohesion.y=fy;f.cohesion.z=fz;}
   }
 }
 
@@ -2609,6 +2643,47 @@ function drawTrails(){
     const mat=new THREE.LineBasicMaterial({color:(P.evoMode||P.ecoMode)?hueToHex(v.dna.hue):col,transparent:true,opacity:P.trailfade*0.5});
     const ln=new THREE.Line(geo,mat);
     trailGroup.add(ln); trailObjs.push(ln);
+  }
+}
+
+// ── Force vector rendering ──
+const FORCE_COLORS={
+  separation:0xff4444, alignment:0x44ff44, cohesion:0x4488ff,
+  gravity:0xffff44, food:0xff8800, hunt:0xff2222, flee:0x22ffff,
+  altitude:0xaa44ff, vortex:0xff44ff,
+};
+const FORCE_SCALE=8.0; // visual scaling multiplier for force arrows
+const forceObjs=[];
+function drawForces(){
+  for(const o of forceObjs){o.geometry.dispose();o.material.dispose();forceGroup.remove(o);}
+  forceObjs.length=0;
+  if(!P.showForces) return;
+  const _p=new THREE.Vector3(), _e=new THREE.Vector3();
+  for(const v of voids){
+    const px=v.pos.x, py=v.pos.y, pz=v.pos.z;
+    // Draw each non-zero force as a colored line
+    for(const [name,col] of Object.entries(FORCE_COLORS)){
+      const fv=v.forces[name];
+      if(!fv) continue;
+      const mag=Math.sqrt(fv.x*fv.x+fv.y*fv.y+fv.z*fv.z);
+      if(mag<0.0001) continue;
+      _p.set(px,py,pz);
+      _e.set(px+fv.x*FORCE_SCALE, py+fv.y*FORCE_SCALE, pz+fv.z*FORCE_SCALE);
+      const geo=new THREE.BufferGeometry().setFromPoints([_p,_e]);
+      const mat=new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.85,linewidth:2});
+      const ln=new THREE.Line(geo,mat);
+      forceGroup.add(ln); forceObjs.push(ln);
+    }
+    // Draw velocity (resultant direction) as a white line
+    const vl=v.vel.length();
+    if(vl>0.0001){
+      _p.set(px,py,pz);
+      _e.set(px+v.vel.x/vl*2.0, py+v.vel.y/vl*2.0, pz+v.vel.z/vl*2.0);
+      const geo=new THREE.BufferGeometry().setFromPoints([_p,_e]);
+      const mat=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,linewidth:2});
+      const ln=new THREE.Line(geo,mat);
+      forceGroup.add(ln); forceObjs.push(ln);
+    }
   }
 }
 
@@ -3882,6 +3957,7 @@ function main(){
   buildBox(); buildAxes();
   trailGroup=new THREE.Group(); scene.add(trailGroup);
   bubbleGroup=new THREE.Group(); bubbleGroup.visible=false; scene.add(bubbleGroup);
+  forceGroup=new THREE.Group(); forceGroup.visible=false; scene.add(forceGroup);
 
   // Build shared wireframe geometries for perception bubbles
   wfSphereGeo = makeWireframeSphere(8);
@@ -3941,6 +4017,7 @@ function loop(t=0){
   } // end if(!P.paused)
 
   drawTrails();
+  drawForces();
   updateCamera(dt);
   if(foodMat&&foodMat.uniforms) foodMat.uniforms.uScale.value = orbit.radius * 2.5;
 
