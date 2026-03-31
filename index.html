@@ -282,7 +282,7 @@
   position:fixed; left:14px; bottom:14px; z-index:8;
   font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(200,232,240,0.28);
   letter-spacing:0.5px; pointer-events:none;
-">v0.16.0</div>
+">v0.16.1</div>
 
 <div id="vector-key-overlay" style="
   display:none; position:fixed; left:14px; top:14px; z-index:10;
@@ -2552,10 +2552,62 @@ class Void {
 // Separation fires within a closer sub-radius; alignment+cohesion use the full flock sphere.
 const _sep={x:0,y:0,z:0}, _ali={x:0,y:0,z:0}, _coh={x:0,y:0,z:0};
 
+// ── Spatial grid for O(n) neighbor lookups ──
+let _gridCellSize=0, _gridCells=null, _gridNx=0, _gridNy=0, _gridNz=0, _gridOx=0, _gridOy=0, _gridOz=0;
+
+function _gridBuild(cellSize){
+  const h=P.cube/2+cellSize;
+  _gridCellSize=cellSize;
+  _gridOx=-h; _gridOy=-h; _gridOz=-h;
+  _gridNx=Math.ceil(2*h/cellSize); _gridNy=Math.ceil(2*h/cellSize); _gridNz=Math.ceil(2*h/cellSize);
+  const total=_gridNx*_gridNy*_gridNz;
+  if(!_gridCells||_gridCells.length<total) _gridCells=new Array(total);
+  for(let i=0;i<total;i++) _gridCells[i]=null;
+}
+
+function _gridInsert(boid){
+  const cx=Math.floor((boid.pos.x-_gridOx)/_gridCellSize);
+  const cy=Math.floor((boid.pos.y-_gridOy)/_gridCellSize);
+  const cz=Math.floor((boid.pos.z-_gridOz)/_gridCellSize);
+  if(cx<0||cx>=_gridNx||cy<0||cy>=_gridNy||cz<0||cz>=_gridNz) return;
+  const idx=cx+cy*_gridNx+cz*_gridNx*_gridNy;
+  boid._gridNext=_gridCells[idx];
+  _gridCells[idx]=boid;
+}
+
+function* _gridNeighbors(boid, radius){
+  const r=radius/_gridCellSize;
+  const cx=Math.floor((boid.pos.x-_gridOx)/_gridCellSize);
+  const cy=Math.floor((boid.pos.y-_gridOy)/_gridCellSize);
+  const cz=Math.floor((boid.pos.z-_gridOz)/_gridCellSize);
+  const span=Math.ceil(r);
+  const x0=Math.max(0,cx-span), x1=Math.min(_gridNx-1,cx+span);
+  const y0=Math.max(0,cy-span), y1=Math.min(_gridNy-1,cy+span);
+  const z0=Math.max(0,cz-span), z1=Math.min(_gridNz-1,cz+span);
+  for(let gz=z0;gz<=z1;gz++){
+    for(let gy=y0;gy<=y1;gy++){
+      for(let gx=x0;gx<=x1;gx++){
+        let b=_gridCells[gx+gy*_gridNx+gz*_gridNx*_gridNy];
+        while(b){yield b; b=b._gridNext;}
+      }
+    }
+  }
+}
+
 function applyBoidRules(dt){
   const n=voids.length;
   if(n<2) return;
   const isEvo = P.evoMode || P.ecoMode;
+
+  // Determine max flock sphere for grid cell size
+  let maxFS=0;
+  for(let i=0;i<n;i++){
+    const fs=isEvo?voids[i].dna.flockSphere:P.flockSphere;
+    if(fs>maxFS) maxFS=fs;
+  }
+  _gridBuild(Math.max(maxFS,1));
+  for(let i=0;i<n;i++){ voids[i]._gridNext=null; _gridInsert(voids[i]); }
+
   for(let i=0;i<n;i++){
     const bi=voids[i];
     const fs  =isEvo?bi.dna.flockSphere:P.flockSphere;
@@ -2567,9 +2619,20 @@ function applyBoidRules(dt){
     _coh.x=0;_coh.y=0;_coh.z=0;
     let sc=0,ac=0,cc=0;
 
-    for(let j=0;j<n;j++){
-      if(i===j) continue;
-      const bj=voids[j];
+    // Reset per-frame forces early (hunt/flee accumulate from neighbor loop)
+    const f=bi.forces;
+    f.separation.x=0;f.separation.y=0;f.separation.z=0;
+    f.alignment.x=0;f.alignment.y=0;f.alignment.z=0;
+    f.cohesion.x=0;f.cohesion.y=0;f.cohesion.z=0;
+    f.gravity.x=0;f.gravity.y=0;f.gravity.z=0;
+    f.food.x=0;f.food.y=0;f.food.z=0;
+    f.hunt.x=0;f.hunt.y=0;f.hunt.z=0;
+    f.flee.x=0;f.flee.y=0;f.flee.z=0;
+    f.altitude.x=0;f.altitude.y=0;f.altitude.z=0;
+    f.vortex.x=0;f.vortex.y=0;f.vortex.z=0;
+
+    for(const bj of _gridNeighbors(bi, fs)){
+      if(bi===bj) continue;
       const dx=bj.pos.x-bi.pos.x, dy=bj.pos.y-bi.pos.y, dz=bj.pos.z-bi.pos.z;
       const d2=dx*dx+dy*dy+dz*dz;
       if(d2<0.0001||d2>fs2) continue;
@@ -2590,27 +2653,22 @@ function applyBoidRules(dt){
 
         // Hunt: bi attacks bj if bi is large enough and has huntDrive
         if(P.predOn && predLOS && bi.dna.huntDrive>0.1 && biSz >= bjSz * P.predRatio){
-          // Steer toward prey
           const huntStr=bi.dna.huntDrive*0.012*dt*60;
           const hfx=dx/dist*huntStr,hfy=dy/dist*huntStr,hfz=dz/dist*huntStr;
           bi.vel.x+=hfx; bi.vel.y+=hfy; bi.vel.z+=hfz;
           bi.forces.hunt.x+=hfx; bi.forces.hunt.y+=hfy; bi.forces.hunt.z+=hfz;
-          // Eat if within combined radii
           const eatR=(biSz+bjSz)*P.size*0.9;
           if(d2<eatR*eatR && bi.energy<bi.maxEnergy*0.95){
             const bite=Math.min(bj.energy*0.4, bi.maxEnergy-bi.energy);
             bi.energy+=bite;
             bj.energy-=bite*1.1;
-            bj._predatedAt = simTime; // flag for cause-of-death
+            bj._predatedAt = simTime;
           }
         }
 
         // Flee: bj runs from bi if bi is a real threat
         if(P.predOn && predLOS && bj.dna.fleeDrive>0.1 && biSz >= bjSz * P.predRatio && bi.dna.huntDrive>0.1){
           const bjPg = bj.dna.passiveGain||0;
-          // Quadratic passivity penalty applied to both max speed AND the flee impulse:
-          // a sessile organism can't explosively dart even briefly — its locomotor
-          // pathways are structurally limited, not just energetically limited.
           const bjPassPenalty = 1.0 + bjPg * 0.5 + bjPg * bjPg * 0.22;
           const bjMaxS = (bj.dna.maxSpeed||1) / bjPassPenalty;
           const fleeStr = bj.dna.fleeDrive * 0.015 * dt * 60 * Math.min(1.0, bjMaxS) / bjPassPenalty;
@@ -2624,24 +2682,10 @@ function applyBoidRules(dt){
     const str=dt*60;
     const sepW=isEvo?bi.dna.separation:P.separation;
     const rawAliW=isEvo?bi.dna.alignment:P.alignment;
-    // Alignment is only meaningful when moving — scale it by speed so sessile boids
-    // don't waste flocking budget on a meaningless direction average.
     const biSpd=Math.sqrt(bi.vel.x*bi.vel.x+bi.vel.y*bi.vel.y+bi.vel.z*bi.vel.z);
     const aliW=rawAliW * Math.min(1, biSpd * 2.0);
     const cohW=isEvo?bi.dna.cohesion:P.cohesion;
     const tr  =isEvo?bi.dna.turnRate  :1.0;
-
-    // Reset per-frame forces
-    const f=bi.forces;
-    f.separation.x=0;f.separation.y=0;f.separation.z=0;
-    f.alignment.x=0;f.alignment.y=0;f.alignment.z=0;
-    f.cohesion.x=0;f.cohesion.y=0;f.cohesion.z=0;
-    f.gravity.x=0;f.gravity.y=0;f.gravity.z=0;
-    f.food.x=0;f.food.y=0;f.food.z=0;
-    f.hunt.x=0;f.hunt.y=0;f.hunt.z=0;
-    f.flee.x=0;f.flee.y=0;f.flee.z=0;
-    f.altitude.x=0;f.altitude.y=0;f.altitude.z=0;
-    f.vortex.x=0;f.vortex.y=0;f.vortex.z=0;
 
     if(sc>0){const s=sepW*str*tr/sc; const fx=_sep.x*s,fy=_sep.y*s,fz=_sep.z*s; bi.vel.x+=fx;bi.vel.y+=fy;bi.vel.z+=fz; f.separation.x=fx;f.separation.y=fy;f.separation.z=fz;}
     if(ac>0){const s=aliW*str*tr*0.1/ac; const fx=(_ali.x-bi.vel.x)*s,fy=(_ali.y-bi.vel.y)*s,fz=(_ali.z-bi.vel.z)*s; bi.vel.x+=fx;bi.vel.y+=fy;bi.vel.z+=fz; f.alignment.x=fx;f.alignment.y=fy;f.alignment.z=fz;}
@@ -2650,60 +2694,133 @@ function applyBoidRules(dt){
   }
 }
 
-// ── Trail rendering ──
-const trailObjs=[];
-function drawTrails(){
-  for(const o of trailObjs){o.geometry.dispose();o.material.dispose();trailGroup.remove(o);}
-  trailObjs.length=0;
-  if(!P.showTrails||P.trail<2) return;
-  const col=THEMES[activeTheme].hex;
-  for(const v of voids){
-    if(v.trail.length<2) continue;
-    const geo=new THREE.BufferGeometry().setFromPoints(v.trail);
-    const mat=new THREE.LineBasicMaterial({color:(P.evoMode||P.ecoMode)?hueToHex(v.dna.hue):col,transparent:true,opacity:P.trailfade*0.5});
-    const ln=new THREE.Line(geo,mat);
-    trailGroup.add(ln); trailObjs.push(ln);
+// ── Trail rendering (persistent geometry pool) ──
+const _trailPool=[];   // reusable {line, geo, buf} objects
+let _trailActive=0;    // how many pool entries are in use
+const _TRAIL_MAX_PTS=60;
+
+function _trailEnsurePool(needed){
+  while(_trailPool.length<needed){
+    const buf=new Float32Array(_TRAIL_MAX_PTS*3);
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(buf, 3));
+    geo.setDrawRange(0,0);
+    const mat=new THREE.LineBasicMaterial({transparent:true,opacity:0.5});
+    const line=new THREE.Line(geo,mat);
+    line.frustumCulled=false;
+    trailGroup.add(line);
+    _trailPool.push({line,geo,buf,mat});
   }
 }
 
-// ── Force vector rendering ──
+function drawTrails(){
+  if(!P.showTrails||P.trail<2){
+    for(let i=0;i<_trailActive;i++) _trailPool[i].line.visible=false;
+    _trailActive=0;
+    return;
+  }
+  const col=THEMES[activeTheme].hex;
+  let idx=0;
+  for(const v of voids){
+    const tl=v.trail.length;
+    if(tl<2) continue;
+    _trailEnsurePool(idx+1);
+    const entry=_trailPool[idx];
+    const buf=entry.buf;
+    const n=Math.min(tl,_TRAIL_MAX_PTS);
+    for(let i=0;i<n;i++){
+      const pt=v.trail[tl-n+i];
+      buf[i*3]=pt.x; buf[i*3+1]=pt.y; buf[i*3+2]=pt.z;
+    }
+    entry.geo.attributes.position.needsUpdate=true;
+    entry.geo.setDrawRange(0,n);
+    entry.mat.color.set((P.evoMode||P.ecoMode)?hueToHex(v.dna.hue):col);
+    entry.mat.opacity=P.trailfade*0.5;
+    entry.line.visible=true;
+    idx++;
+  }
+  // Hide unused pool entries
+  for(let i=idx;i<_trailActive;i++) _trailPool[i].line.visible=false;
+  _trailActive=idx;
+}
+
+// ── Force vector rendering (batched LineSegments) ──
 const FORCE_COLORS={
   separation:0xff4444, alignment:0x44ff44, cohesion:0x4488ff,
   gravity:0xffff44, food:0xff8800, hunt:0xff2222, flee:0x22ffff,
   altitude:0xaa44ff, vortex:0xff44ff,
 };
-const FORCE_SCALE=8.0; // visual scaling multiplier for force arrows
-const forceObjs=[];
+const FORCE_SCALE=8.0;
+const _FORCE_NAMES=Object.keys(FORCE_COLORS);
+const _FORCE_COLS=Object.values(FORCE_COLORS);
+// One LineSegments batch per force type + 1 for velocity = 10 total
+const _forceBatches=[];
+let _forceInited=false;
+
+function _forceInit(){
+  if(_forceInited) return;
+  _forceInited=true;
+  const names=[..._FORCE_NAMES,'velocity'];
+  const cols=[..._FORCE_COLS,0xffffff];
+  for(let i=0;i<names.length;i++){
+    const maxSegs=500; // up to 500 boids
+    const buf=new Float32Array(maxSegs*6); // 2 points × 3 coords per segment
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(buf, 3));
+    geo.setDrawRange(0,0);
+    const mat=new THREE.LineBasicMaterial({color:cols[i],transparent:true,opacity:i<_FORCE_NAMES.length?0.85:0.95,linewidth:2});
+    const line=new THREE.LineSegments(geo,mat);
+    line.frustumCulled=false;
+    forceGroup.add(line);
+    _forceBatches.push({line,geo,buf,count:0,maxSegs});
+  }
+}
+
 function drawForces(){
-  for(const o of forceObjs){o.geometry.dispose();o.material.dispose();forceGroup.remove(o);}
-  forceObjs.length=0;
-  if(!P.showForces) return;
-  const _p=new THREE.Vector3(), _e=new THREE.Vector3();
+  _forceInit();
+  if(!P.showForces){
+    for(const b of _forceBatches) b.line.visible=false;
+    return;
+  }
+  const nBoids=voids.length;
+  // Grow buffers if needed
+  for(const b of _forceBatches){
+    if(nBoids>b.maxSegs){
+      b.maxSegs=nBoids+100;
+      b.buf=new Float32Array(b.maxSegs*6);
+      b.geo.setAttribute('position', new THREE.BufferAttribute(b.buf, 3));
+    }
+  }
+  // Reset counts
+  for(const b of _forceBatches) b.count=0;
+
   for(const v of voids){
     const px=v.pos.x, py=v.pos.y, pz=v.pos.z;
-    // Draw each non-zero force as a colored line
-    for(const [name,col] of Object.entries(FORCE_COLORS)){
-      const fv=v.forces[name];
+    for(let fi=0;fi<_FORCE_NAMES.length;fi++){
+      const fv=v.forces[_FORCE_NAMES[fi]];
       if(!fv) continue;
-      const mag=Math.sqrt(fv.x*fv.x+fv.y*fv.y+fv.z*fv.z);
-      if(mag<0.0001) continue;
-      _p.set(px,py,pz);
-      _e.set(px+fv.x*FORCE_SCALE, py+fv.y*FORCE_SCALE, pz+fv.z*FORCE_SCALE);
-      const geo=new THREE.BufferGeometry().setFromPoints([_p,_e]);
-      const mat=new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.85,linewidth:2});
-      const ln=new THREE.Line(geo,mat);
-      forceGroup.add(ln); forceObjs.push(ln);
+      const mag=fv.x*fv.x+fv.y*fv.y+fv.z*fv.z;
+      if(mag<0.00000001) continue;
+      const b=_forceBatches[fi];
+      const off=b.count*6;
+      b.buf[off]=px;   b.buf[off+1]=py;   b.buf[off+2]=pz;
+      b.buf[off+3]=px+fv.x*FORCE_SCALE; b.buf[off+4]=py+fv.y*FORCE_SCALE; b.buf[off+5]=pz+fv.z*FORCE_SCALE;
+      b.count++;
     }
-    // Draw velocity (resultant direction) as a white line
-    const vl=v.vel.length();
+    // Velocity line
+    const vl=Math.sqrt(v.vel.x*v.vel.x+v.vel.y*v.vel.y+v.vel.z*v.vel.z);
     if(vl>0.0001){
-      _p.set(px,py,pz);
-      _e.set(px+v.vel.x/vl*2.0, py+v.vel.y/vl*2.0, pz+v.vel.z/vl*2.0);
-      const geo=new THREE.BufferGeometry().setFromPoints([_p,_e]);
-      const mat=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,linewidth:2});
-      const ln=new THREE.Line(geo,mat);
-      forceGroup.add(ln); forceObjs.push(ln);
+      const b=_forceBatches[_FORCE_NAMES.length];
+      const off=b.count*6;
+      b.buf[off]=px;   b.buf[off+1]=py;   b.buf[off+2]=pz;
+      b.buf[off+3]=px+v.vel.x/vl*2.0; b.buf[off+4]=py+v.vel.y/vl*2.0; b.buf[off+5]=pz+v.vel.z/vl*2.0;
+      b.count++;
     }
+  }
+  for(const b of _forceBatches){
+    b.geo.attributes.position.needsUpdate=true;
+    b.geo.setDrawRange(0, b.count*2);
+    b.line.visible=b.count>0;
   }
 }
 
