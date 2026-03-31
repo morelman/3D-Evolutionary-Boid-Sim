@@ -3261,7 +3261,7 @@ function tallyAdd(cssClass, text){
 function tallyAddBirth(boid){
   tallyCounts.births++;
   tallyUpdateCounts();
-  tallyAdd('birth', `⊕ GEN ${boid.gen} born`);
+  tallyAdd('birth', `⊕ ${boid.name} · GEN ${boid.gen} born`);
 }
 
 function tallyAddDeath(boid, cause){
@@ -3271,7 +3271,7 @@ function tallyAddDeath(boid, cause){
   tallyUpdateCounts();
   const causeClass = cause === 'age' ? 'death-age' : cause === 'predation' ? 'death-pred' : 'death-starve';
   const causeLabel = cause === 'age' ? 'old age' : cause === 'predation' ? 'predation' : 'starvation';
-  tallyAdd(causeClass, `⊗ GEN ${boid.gen}  ${causeLabel}`);
+  tallyAdd(causeClass, `⊗ ${boid.name} · GEN ${boid.gen}  ${causeLabel}`);
 }
 
 function tallyClear(){
