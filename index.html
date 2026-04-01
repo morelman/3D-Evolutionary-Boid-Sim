@@ -282,7 +282,7 @@
   position:fixed; left:14px; bottom:14px; z-index:8;
   font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(200,232,240,0.28);
   letter-spacing:0.5px; pointer-events:none;
-">v0.17.0</div>
+">v0.17.1</div>
 
 <div id="vector-key-overlay" style="
   display:none; position:fixed; left:14px; top:14px; z-index:10;
@@ -2667,7 +2667,9 @@ function applyBoidRules(dt){
         }
 
         // Flee: bj runs from bi if bi is a real threat
-        if(P.predOn && predLOS && bj.dna.fleeDrive>0.1 && biSz >= bjSz * P.predRatio && bi.dna.huntDrive>0.1){
+        // Plant-like boids (high passiveGain, low huntDrive) cannot flee — they are sessile.
+        const bjIsPlant = P.ecoMode && (bj.dna.passiveGain||0) > 1.0 && (bj.dna.huntDrive||0) < 0.4;
+        if(P.predOn && predLOS && !bjIsPlant && bj.dna.fleeDrive>0.1 && biSz >= bjSz * P.predRatio && bi.dna.huntDrive>0.1){
           const bjPg = bj.dna.passiveGain||0;
           const bjPassPenalty = 1.0 + bjPg * 0.5 + bjPg * bjPg * 0.22;
           const bjMaxS = (bj.dna.maxSpeed||1) / bjPassPenalty;
