@@ -282,7 +282,7 @@
   position:fixed; left:14px; bottom:14px; z-index:8;
   font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(200,232,240,0.28);
   letter-spacing:0.5px; pointer-events:none;
-">v0.16.1</div>
+">v0.17.0</div>
 
 <div id="vector-key-overlay" style="
   display:none; position:fixed; left:14px; top:14px; z-index:10;
@@ -610,7 +610,7 @@
     <div class="section-label">Population</div>
     <div class="control">
       <div class="control-row"><span class="control-name">Initial Count</span><span class="control-value" id="v-count">60</span></div>
-      <input type="range" id="r-count" min="1" max="500" value="60">
+      <input type="range" id="r-count" min="1" max="1000" value="60">
     </div>
   </div>
 
@@ -3743,7 +3743,7 @@ function setupOrbit(){
   dom.addEventListener('contextmenu',e=>e.preventDefault());
   dom.addEventListener('wheel',e=>{
     if(freecam.active) return;
-    orbit.radius=Math.max(2,Math.min(220,orbit.radius+e.deltaY*0.05));
+    orbit.radius=Math.max(2,orbit.radius+e.deltaY*0.05);
   });
   dom.addEventListener('dblclick',()=>{
     if(freecam.active) exitFreecam();
