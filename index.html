@@ -2259,7 +2259,9 @@ class Void {
       // Movement drain scales with passiveGain: photosynthesis-specialized cells are
       // structurally expensive to move. pg=0→1×; pg=2→4×; pg=3→7.75×; pg=4→13×
       const pgMoveMult = P.ecoMode ? (1.0 + pg * pg * 0.75) : 1.0;
-      const moveDrainRate   = P.moveDrain * spd * spd * pgMoveMult;
+      // Linear term: even slow movement drains high-pg boids (quadratic alone vanishes at low speed)
+      const pgLinearDrain = P.ecoMode ? pg * pg * 0.3 : 0;
+      const moveDrainRate   = P.moveDrain * (spd * spd * pgMoveMult + spd * pgLinearDrain);
       const percDrainRate   = P.flockDrain * flockCost + P.visionDrain * visionCost;
 
       // Angular (turn) rate: angle swept per second from direction change.
@@ -2304,7 +2306,7 @@ class Void {
       // Repeated dodges keep resetting the timer, starving the passive boid.
       // Stall duration scales with passiveGain: more specialized = longer restart.
       if(P.ecoMode && pg > 0.3){
-        const moveThreshold = 0.08;
+        const moveThreshold = 0.08 / (1.0 + pg * 0.5);
         if(spd > moveThreshold){
           // stallDur = base × (1 + pg×0.5): pg=1→3s, pg=2→4s, pg=3→5s at default stall=2s
           this.photosynthesisStall = P.passivityCurve * (1.0 + pg * 0.5);
@@ -2398,11 +2400,9 @@ class Void {
     if(P.ecoMode){
       const h=P.cube/2;
       const localGround = getGroundY(this.pos.x, this.pos.z);
-      const isPlantLike2 = this.dna.passiveGain > 0.5 && this.dna.huntDrive < 0.5;
-      // Plant-like boids target the terrain surface; others use preferredAlt above terrain
-      const targetY = isPlantLike2
-        ? localGround
-        : localGround + Math.max(0, this.dna.preferredAlt) * h * 0.85;
+      // Altitude target scales inversely with passiveGain — high pg boids naturally stay near ground
+      const pgAltScale = 1.0 / (1.0 + (this.dna.passiveGain||0) * (this.dna.passiveGain||0) * 0.5);
+      const targetY = localGround + Math.max(0, this.dna.preferredAlt) * h * 0.85 * pgAltScale;
       const yErr = targetY - this.pos.y;
       const altF = yErr * 0.015 * dt * 60;
       this.vel.y += altF;
@@ -2441,16 +2441,18 @@ class Void {
     const pg = P.ecoMode ? (this.dna.passiveGain||0) : 0;
     const passivitySpeedPenalty = P.ecoMode ? (1.0 + pg * 0.5 + pg * pg * 0.22) : 1.0;
     const maxS = rawMaxS / (sizeSpeedPenalty * passivitySpeedPenalty);
-    // Lower threshold: even moderately passive boids can't sustain fast movement
-    const isPlantLike = P.ecoMode && this.dna.passiveGain > 1.0 && this.dna.huntDrive < 0.4;
-    const minS = isPlantLike ? 0 : (isEvo2 ? this.dna.maxSpeed : P.speed) * 0.12;
+    // Min speed uses penalized maxS — high passiveGain boids naturally have near-zero floor
+    const minS = (isEvo2 ? maxS : P.speed) * 0.12;
     const sp=this.vel.length();
     if(sp>maxS) this.vel.multiplyScalar(maxS/sp);
-    else if(!isPlantLike && sp<minS){
+    else if(sp<minS){
       if(sp>0.0001) this.vel.multiplyScalar(minS/sp);
-      else this.vel.set((Math.random()-0.5)*minS,(Math.random()-0.5)*minS,(Math.random()-0.5)*minS);
-    } else if(isPlantLike && sp>0.05){
-      this.vel.multiplyScalar(0.92); // plants slow down quickly
+      else if(minS>0.001) this.vel.set((Math.random()-0.5)*minS,(Math.random()-0.5)*minS,(Math.random()-0.5)*minS);
+    }
+    // Viscous drag scales continuously with passiveGain — high pg = increasingly rooted
+    if(P.ecoMode && pg > 0.3){
+      const pgDrag = 1.0 - Math.min(0.15, pg * pg * 0.012) * dt * 60;
+      this.vel.multiplyScalar(pgDrag);
     }
 
     this.pos.addScaledVector(this.vel,dt*60);
@@ -2667,9 +2669,7 @@ function applyBoidRules(dt){
         }
 
         // Flee: bj runs from bi if bi is a real threat
-        // Plant-like boids (high passiveGain, low huntDrive) cannot flee — they are sessile.
-        const bjIsPlant = P.ecoMode && (bj.dna.passiveGain||0) > 1.0 && (bj.dna.huntDrive||0) < 0.4;
-        if(P.predOn && predLOS && !bjIsPlant && bj.dna.fleeDrive>0.1 && biSz >= bjSz * P.predRatio && bi.dna.huntDrive>0.1){
+        if(P.predOn && predLOS && bj.dna.fleeDrive>0.1 && biSz >= bjSz * P.predRatio && bi.dna.huntDrive>0.1){
           const bjPg = bj.dna.passiveGain||0;
           const bjPassPenalty = 1.0 + bjPg * 0.5 + bjPg * bjPg * 0.22;
           const bjMaxS = (bj.dna.maxSpeed||1) / bjPassPenalty;
